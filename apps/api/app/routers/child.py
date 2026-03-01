@@ -20,14 +20,13 @@ class SubmitTextRequest(BaseModel):
 @router.get("/today")
 async def get_today(user: AuthUser = Depends(require_child)):
     sb = get_supabase()
-    today = date.today().isoformat()
 
     assignments = (
         sb.table("assignments")
         .select("*, task:tasks(*)")
         .eq("child_id", user.id)
-        .eq("scheduled_date", today)
         .in_("status", ["assigned", "in_progress"])
+        .order("scheduled_date")
         .execute()
     )
 
@@ -238,4 +237,37 @@ async def get_pokemon(user: AuthUser = Depends(require_child)):
         .order("created_at", desc=True)
         .execute()
     )
-    return {"pokemon": pokemon.data or []}
+    rewards = await get_rewards_status(user.id)
+    return {"pokemon": pokemon.data or [], "rewards_status": rewards}
+
+
+@router.get("/progress")
+async def get_progress(user: AuthUser = Depends(require_child)):
+    sb = get_supabase()
+
+    completed = (
+        sb.table("assignments")
+        .select("id, completed_at, task:tasks(title, type)", count="exact")
+        .eq("child_id", user.id)
+        .eq("status", "completed")
+        .order("completed_at", desc=True)
+        .limit(10)
+        .execute()
+    )
+
+    open_assignments = (
+        sb.table("assignments")
+        .select("id", count="exact")
+        .eq("child_id", user.id)
+        .in_("status", ["assigned", "in_progress"])
+        .execute()
+    )
+
+    rewards = await get_rewards_status(user.id)
+
+    return {
+        "completed_total": completed.count or 0,
+        "open_total": open_assignments.count or 0,
+        "recent_completed": completed.data or [],
+        "rewards_status": rewards,
+    }

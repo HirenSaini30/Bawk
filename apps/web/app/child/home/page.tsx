@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { getToday } from "@/lib/api";
 import { useCelebrateFromSearchParams } from "@/lib/use-celebrate";
@@ -43,6 +44,46 @@ function TopMetaChip({
   );
 }
 
+function PortalCard({
+  href,
+  label,
+  description,
+  badge,
+}: {
+  href: string;
+  label: string;
+  description: string;
+  badge: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="rounded-[24px] border px-5 py-5 transition hover:-translate-y-0.5 hover:bg-white/75"
+      style={{
+        borderColor: "rgba(17,24,39,0.08)",
+        background: "rgba(255,255,255,0.55)",
+      }}
+    >
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <div className="text-lg font-semibold" style={{ color: COLORS.ink }}>
+            {label}
+          </div>
+          <div className="mt-2 text-sm leading-6" style={{ color: COLORS.inkSoft }}>
+            {description}
+          </div>
+        </div>
+        <div
+          className="rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em]"
+          style={{ background: "rgba(249,115,22,0.10)", color: COLORS.orangeDeep }}
+        >
+          {badge}
+        </div>
+      </div>
+    </Link>
+  );
+}
+
 /* ── Main page ──────────────────────────────────────────── */
 export default function ChildHomePage() {
   const router = useRouter();
@@ -75,6 +116,10 @@ export default function ChildHomePage() {
 
   const level = useMemo(() => Math.max(1, Math.floor(totalXp / 100) + 1), [totalXp]);
   const levelPct = useMemo(() => totalXp % 100, [totalXp]);
+  const chickenGrowthScale = useMemo(
+    () => 1 + Math.min(0.45, (level - 1) * 0.05),
+    [level]
+  );
 
   const dateLabel = useMemo(() => {
     const now = new Date();
@@ -161,7 +206,12 @@ export default function ChildHomePage() {
 
       {/* ── Center: chicken + stats ────────────────────── */}
       <div className="relative mx-auto max-w-6xl px-6 pb-14 pt-2">
-        <WhiteChicken celebrate={play} toast={toast} onDone={stop} />
+        <WhiteChicken
+          celebrate={play}
+          toast={toast}
+          growthScale={chickenGrowthScale}
+          onDone={stop}
+        />
 
         {/* Stats row */}
         <div className="mx-auto mt-1 grid max-w-3xl grid-cols-2 gap-6 px-2 text-sm">
@@ -183,6 +233,14 @@ export default function ChildHomePage() {
               </span>
               <span className="tabular-nums">
                 {pokemonCount} pokemon
+              </span>
+            </div>
+            <div className="mt-1 flex items-center gap-2">
+              <span className="text-lg" aria-hidden>
+                🐣
+              </span>
+              <span className="tabular-nums">
+                Buddy growth x{chickenGrowthScale.toFixed(2)}
               </span>
             </div>
           </div>
@@ -230,18 +288,105 @@ export default function ChildHomePage() {
               )
             }
           >
-            Run Goal
+            Start Activity
           </button>
         </div>
 
-        {assignments.length === 0 && (
-          <div
-            className="mt-4 text-center text-xs"
-            style={{ color: COLORS.inkFaint }}
-          >
-            No activities for today — check back later!
-          </div>
-        )}
+        <div className="mx-auto mt-8 grid max-w-4xl gap-4 md:grid-cols-3">
+          <PortalCard
+            href="/child/home"
+            label="Activities"
+            description="See what is ready now and jump into your next practice task."
+            badge={`${assignments.length} ready`}
+          />
+          <PortalCard
+            href="/child/progress"
+            label="Progress"
+            description="Track completed work, XP, open activities, and recent wins."
+            badge="stats"
+          />
+          <PortalCard
+            href="/child/pokemon"
+            label="Pokemon"
+            description="Check your collection, your levels, and how close you are to evolving."
+            badge={`${pokemonCount} owned`}
+          />
+        </div>
+
+        <div className="mx-auto mt-8 max-w-3xl">
+          {assignments.length === 0 ? (
+            <div
+              className="rounded-[24px] border px-6 py-5 text-center text-sm"
+              style={{
+                borderColor: "rgba(17,24,39,0.08)",
+                background: "rgba(255,255,255,0.55)",
+                color: COLORS.inkFaint,
+              }}
+            >
+              No activities are ready yet. Explore your progress or Pokemon, or check back after your supervisor assigns something new.
+            </div>
+          ) : (
+            <div
+              className="rounded-[28px] border px-5 py-5 backdrop-blur-sm"
+              style={{
+                borderColor: "rgba(17,24,39,0.08)",
+                background: "rgba(255,255,255,0.55)",
+              }}
+            >
+              <div className="mb-4 flex items-center justify-between gap-4">
+                <div>
+                  <h2
+                    className="text-base font-semibold"
+                    style={{ color: COLORS.ink }}
+                  >
+                    Your Activities
+                  </h2>
+                  <p className="text-sm" style={{ color: COLORS.inkSoft }}>
+                    Any activity that is ready for you will show up here.
+                  </p>
+                </div>
+                <div className="text-sm" style={{ color: COLORS.inkSoft }}>
+                  {assignments.length} total
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                {assignments.map((assignment: any) => {
+                  const task = assignment.task || {};
+                  return (
+                    <Link
+                      key={assignment.id}
+                      href={`/child/task/${assignment.id}`}
+                      className="flex items-center justify-between rounded-2xl border px-4 py-4 transition hover:bg-white/70"
+                      style={{ borderColor: "rgba(17,24,39,0.08)" }}
+                    >
+                      <div className="min-w-0">
+                        <div
+                          className="truncate text-sm font-semibold"
+                          style={{ color: COLORS.ink }}
+                        >
+                          {task.title || "Activity"}
+                        </div>
+                        <div className="mt-1 text-xs" style={{ color: COLORS.inkSoft }}>
+                          {(task.type || "activity").replaceAll("_", " ")}
+                        </div>
+                      </div>
+                      <div
+                        className="rounded-full px-3 py-1 text-xs font-medium"
+                        style={{
+                          background: "rgba(249,115,22,0.10)",
+                          color: COLORS.orangeDeep,
+                        }}
+                      >
+                        Start
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

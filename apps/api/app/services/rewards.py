@@ -1,17 +1,14 @@
-"""Pokemon rewards system — deterministic MVP mechanics."""
+"""Pokemon rewards system — deterministic progression mechanics."""
 
-import random
 from app.db import get_supabase
 
 # XP thresholds for evolution: stage 1 -> 2 at 100 XP, stage 2 -> 3 at 300 XP
 EVOLUTION_THRESHOLDS = {1: 100, 2: 300}
+POKEMON_UNLOCK_XP = 120
 
 BASE_XP_PER_COMPLETION = 25
 BONUS_XP_ON_TOPIC = 10
 COINS_PER_COMPLETION = 5
-
-# Deterministic drop: every 3rd completion (by total count) grants a new Pokemon
-DROP_INTERVAL = 3
 
 STARTER_POKEMON = [
     {"pokemon_key": "ember_fox", "rarity": "common", "name": "Ember Fox"},
@@ -42,79 +39,77 @@ async def grant_completion_reward(
     coins = COINS_PER_COMPLETION + effort_score
 
     reward_payload: dict = {"pokemon_unlocked": None, "evolution": None}
-
-    # Check total completions to determine if child earns a new Pokemon
-    completions = (
+    ledger = (
         sb.table("rewards_ledger")
-        .select("id", count="exact")
+        .select("xp_delta", count="exact")
         .eq("child_id", child_id)
         .execute()
     )
-    total_completions = (completions.count or 0) + 1
+    total_xp_before = sum(entry["xp_delta"] for entry in (ledger.data or []))
+    total_xp_after = total_xp_before + xp
+    total_completions = (ledger.count or 0) + 1
 
     pokemon_update = None
+    existing = (
+        sb.table("pokemon_collection")
+        .select("*")
+        .eq("child_id", child_id)
+        .order("created_at")
+        .execute()
+    )
+    owned_pokemon = existing.data or []
+    owned_keys = {p["pokemon_key"] for p in owned_pokemon}
 
-    if total_completions % DROP_INTERVAL == 0:
-        # Deterministic selection cycling through the catalog
-        owned = (
+    available = [p for p in STARTER_POKEMON if p["pokemon_key"] not in owned_keys]
+    eligible_unlocks = min(len(STARTER_POKEMON), total_xp_after // POKEMON_UNLOCK_XP)
+
+    if eligible_unlocks > len(owned_pokemon) and available:
+        pick = available[0]
+        new_pokemon = (
             sb.table("pokemon_collection")
-            .select("pokemon_key")
-            .eq("child_id", child_id)
+            .insert(
+                {
+                    "child_id": child_id,
+                    "pokemon_key": pick["pokemon_key"],
+                    "rarity": pick["rarity"],
+                }
+            )
             .execute()
         )
-        owned_keys = {p["pokemon_key"] for p in (owned.data or [])}
-        available = [p for p in STARTER_POKEMON if p["pokemon_key"] not in owned_keys]
-
-        if available:
-            # Pick from available, biased toward common first
-            common = [p for p in available if p["rarity"] == "common"]
-            pick = common[0] if common else available[0]
-
-            new_pokemon = (
-                sb.table("pokemon_collection")
-                .insert(
-                    {
-                        "child_id": child_id,
-                        "pokemon_key": pick["pokemon_key"],
-                        "rarity": pick["rarity"],
-                    }
-                )
-                .execute()
-            )
-            pokemon_update = new_pokemon.data[0] if new_pokemon.data else None
+        unlocked = new_pokemon.data[0] if new_pokemon.data else None
+        if unlocked:
+            pokemon_update = unlocked
             reward_payload["pokemon_unlocked"] = pick["pokemon_key"]
-        else:
-            # All Pokemon owned — add XP to a random existing one for evolution
-            existing = (
-                sb.table("pokemon_collection")
-                .select("*")
-                .eq("child_id", child_id)
-                .execute()
+            owned_pokemon.append(unlocked)
+
+    if owned_pokemon:
+        target = owned_pokemon[0]
+        new_xp = target["xp"] + xp
+        new_stage = target["evolution_stage"]
+        threshold = EVOLUTION_THRESHOLDS.get(new_stage)
+        if threshold and new_xp >= threshold:
+            new_stage += 1
+            reward_payload["evolution"] = {
+                "pokemon_key": target["pokemon_key"],
+                "new_stage": new_stage,
+            }
+        updated = (
+            sb.table("pokemon_collection")
+            .update(
+                {
+                    "xp": new_xp,
+                    "level": target["level"] + 1,
+                    "evolution_stage": new_stage,
+                }
             )
-            if existing.data:
-                target = random.choice(existing.data)
-                new_xp = target["xp"] + xp
-                new_stage = target["evolution_stage"]
-                threshold = EVOLUTION_THRESHOLDS.get(new_stage)
-                if threshold and new_xp >= threshold:
-                    new_stage += 1
-                    reward_payload["evolution"] = {
-                        "pokemon_key": target["pokemon_key"],
-                        "new_stage": new_stage,
-                    }
-                updated = (
-                    sb.table("pokemon_collection")
-                    .update(
-                        {
-                            "xp": new_xp,
-                            "level": target["level"] + 1,
-                            "evolution_stage": new_stage,
-                        }
-                    )
-                    .eq("id", target["id"])
-                    .execute()
-                )
-                pokemon_update = updated.data[0] if updated.data else None
+            .eq("id", target["id"])
+            .execute()
+        )
+        if updated.data:
+            if reward_payload["pokemon_unlocked"] == target["pokemon_key"]:
+                pokemon_update = updated.data[0]
+            elif pokemon_update is None:
+                pokemon_update = updated.data[0]
 
     # Write reward ledger entry
     reward_entry = (
@@ -150,17 +145,38 @@ async def get_rewards_status(child_id: str) -> dict:
     entries = ledger.data or []
     total_xp = sum(e["xp_delta"] for e in entries)
     total_coins = sum(e["coins_delta"] for e in entries)
+    total_completions = len(entries)
 
     pokemon = (
         sb.table("pokemon_collection")
         .select("*", count="exact")
         .eq("child_id", child_id)
+        .order("created_at")
         .execute()
     )
+    pokemon_rows = pokemon.data or []
+    next_unlock_at_xp = None
+    xp_until_next_unlock = 0
+    unlock_progress_percent = 100
+    if (pokemon.count or 0) < len(STARTER_POKEMON):
+        next_unlock_at_xp = ((pokemon.count or 0) + 1) * POKEMON_UNLOCK_XP
+        xp_until_next_unlock = max(0, next_unlock_at_xp - total_xp)
+        previous_unlock_floor = (pokemon.count or 0) * POKEMON_UNLOCK_XP
+        segment = max(1, next_unlock_at_xp - previous_unlock_floor)
+        unlock_progress_percent = min(
+            100,
+            round(((total_xp - previous_unlock_floor) / segment) * 100),
+        )
+        unlock_progress_percent = max(0, unlock_progress_percent)
 
     return {
         "total_xp": total_xp,
         "total_coins": total_coins,
+        "total_completions": total_completions,
         "pokemon_count": pokemon.count or 0,
+        "next_unlock_at_xp": next_unlock_at_xp,
+        "xp_until_next_unlock": xp_until_next_unlock,
+        "unlock_progress_percent": unlock_progress_percent,
+        "active_companion": pokemon_rows[0] if pokemon_rows else None,
         "latest_reward": entries[0] if entries else None,
     }

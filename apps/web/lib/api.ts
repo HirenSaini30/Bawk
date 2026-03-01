@@ -4,9 +4,15 @@ import { env } from "./env";
 const API_URL = env.apiUrl;
 
 async function getAuthHeaders(): Promise<Record<string, string>> {
-  const {
+  let {
     data: { session },
   } = await supabase.auth.getSession();
+
+  if (!session?.access_token) {
+    const refreshResult = await supabase.auth.refreshSession();
+    session = refreshResult.data.session;
+  }
+
   if (!session?.access_token) {
     throw new Error("Not authenticated");
   }
@@ -18,16 +24,33 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
 
 async function apiFetch<T>(
   path: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  hasRetried = false
 ): Promise<T> {
   const headers = await getAuthHeaders();
-  const res = await fetch(`${API_URL}${path}`, {
-    ...options,
-    headers: { ...headers, ...options.headers },
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}${path}`, {
+      ...options,
+      headers: { ...headers, ...options.headers },
+    });
+  } catch {
+    throw new Error(
+      "Could not reach the API. Check that the backend is running and NEXT_PUBLIC_API_URL is correct."
+    );
+  }
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({ detail: res.statusText }));
+    if (
+      !hasRetried &&
+      res.status === 401 &&
+      typeof body.detail === "string" &&
+      body.detail.toLowerCase().includes("invalid token")
+    ) {
+      await supabase.auth.refreshSession();
+      return apiFetch<T>(path, options, true);
+    }
     throw new Error(body.detail || `API error: ${res.status}`);
   }
   return res.json();
@@ -39,6 +62,13 @@ export async function listChildren() {
   return apiFetch<{ children: any[] }>("/supervisor/children");
 }
 
+export async function linkChildByEmail(childEmail: string) {
+  return apiFetch<{ linked: boolean; child: any }>("/supervisor/children/link", {
+    method: "POST",
+    body: JSON.stringify({ child_email: childEmail }),
+  });
+}
+
 export async function getChildDetail(childId: string) {
   return apiFetch<{ profile: any; goals: any[]; tasks: any[] }>(
     `/supervisor/child/${childId}`
@@ -46,7 +76,8 @@ export async function getChildDetail(childId: string) {
 }
 
 export async function createGoal(data: {
-  child_id: string;
+  child_id?: string;
+  child_ids?: string[];
   title: string;
   description: string;
   category: string;
@@ -54,7 +85,7 @@ export async function createGoal(data: {
   success_criteria: string[];
   constraints: Record<string, unknown>;
 }) {
-  return apiFetch("/supervisor/goals", {
+  return apiFetch<{ goal: any; goals: any[] }>("/supervisor/goals", {
     method: "POST",
     body: JSON.stringify(data),
   });
@@ -76,6 +107,9 @@ export async function generateTasks(data: {
   desired_task_types: string[];
   count: number;
   constraints?: Record<string, unknown>;
+  auto_assign_dates?: string[];
+  target_child_ids?: string[];
+  assign_all_linked_children?: boolean;
 }) {
   return apiFetch<{ tasks: any[] }>("/ai/tasks/generate", {
     method: "POST",
@@ -99,11 +133,20 @@ export async function updateTask(
 
 export async function publishTask(
   taskId: string,
-  scheduledDates: string[]
+  data: {
+    scheduled_dates?: string[];
+    target_child_ids?: string[];
+    assign_all_linked_children?: boolean;
+  }
 ) {
-  return apiFetch<{ task_id: string; status: string; assignments: any[] }>(
+  return apiFetch<{
+    task_id: string;
+    status: string;
+    assignments: any[];
+    published_task_ids: string[];
+  }>(
     `/tasks/${taskId}/publish`,
-    { method: "POST", body: JSON.stringify({ scheduled_dates: scheduledDates }) }
+    { method: "POST", body: JSON.stringify(data) }
   );
 }
 
@@ -133,14 +176,21 @@ export async function submitVoice(assignmentId: string, audioBlob: Blob) {
   const formData = new FormData();
   formData.append("audio", audioBlob, "recording.webm");
 
-  const res = await fetch(
-    `${API_URL}/child/assignments/${assignmentId}/submit_voice`,
-    {
-      method: "POST",
-      headers: { Authorization: `Bearer ${session?.access_token}` },
-      body: formData,
-    }
-  );
+  let res: Response;
+  try {
+    res = await fetch(
+      `${API_URL}/child/assignments/${assignmentId}/submit_voice`,
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session?.access_token}` },
+        body: formData,
+      }
+    );
+  } catch {
+    throw new Error(
+      "Could not reach the API. Check that the backend is running and NEXT_PUBLIC_API_URL is correct."
+    );
+  }
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({ detail: res.statusText }));
@@ -150,12 +200,38 @@ export async function submitVoice(assignmentId: string, audioBlob: Blob) {
 }
 
 export async function getMyPokemon() {
-  return apiFetch<{ pokemon: any[] }>("/child/pokemon");
+  return apiFetch<{ pokemon: any[]; rewards_status: any }>("/child/pokemon");
+}
+
+export async function getMyProgress() {
+  return apiFetch<{
+    completed_total: number;
+    open_total: number;
+    recent_completed: any[];
+    rewards_status: any;
+  }>("/child/progress");
 }
 
 export async function requestTts(text: string) {
   return apiFetch<{ narration_text: string }>("/ai/tts", {
     method: "POST",
     body: JSON.stringify({ text }),
+  });
+}
+
+export async function requestUpsetSupport(context?: string) {
+  return apiFetch<{
+    support_plan: {
+      intro_text?: string;
+      steps?: Array<{
+        instruction: string;
+        duration_seconds?: number;
+        type: string;
+      }>;
+      closing_text?: string;
+    };
+  }>("/ai/upset-support", {
+    method: "POST",
+    body: JSON.stringify({ context }),
   });
 }

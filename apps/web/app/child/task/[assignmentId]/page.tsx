@@ -12,7 +12,7 @@ import { SocialStoryPlayer } from "@/components/child/social-story-player";
 import { RoleplayPlayer } from "@/components/child/roleplay-player";
 import { CalmingPlayer } from "@/components/child/calming-player";
 import { ModelingPlayer } from "@/components/child/modeling-player";
-import { TASK_TYPE_LABELS, POKEMON_DISPLAY } from "@/lib/utils";
+import { TASK_TYPE_LABELS, getPokemonDisplay } from "@/lib/utils";
 
 export default function TaskPlayerPage() {
   const params = useParams();
@@ -116,8 +116,9 @@ export default function TaskPlayerPage() {
   if (result) {
     const pokemon = result.pokemon_update;
     const pokemonInfo = pokemon
-      ? POKEMON_DISPLAY[pokemon.pokemon_key]
+      ? getPokemonDisplay(pokemon.pokemon_key, pokemon.evolution_stage)
       : null;
+    const rewardPayload = result.rewards?.reward_payload || {};
 
     return (
       <div className="kid-container space-y-6 text-center">
@@ -158,10 +159,17 @@ export default function TaskPlayerPage() {
         {pokemonInfo && (
           <Card className="bg-primary-50 border-primary-300 border-2">
             <CardContent className="py-6 text-center">
-              <div className="text-5xl mb-2">{pokemonInfo.emoji}</div>
-              <p className="text-kid-lg font-bold" style={{ color: pokemonInfo.color }}>
-                New Pokemon: {pokemonInfo.name}!
+              <div className="text-5xl mb-2">{pokemonInfo.form.emoji}</div>
+              <p className="text-kid-lg font-bold" style={{ color: pokemonInfo.form.accent }}>
+                {rewardPayload.pokemon_unlocked
+                  ? `New Creature: ${pokemonInfo.form.name}!`
+                  : `${pokemonInfo.form.name} grew stronger!`}
               </p>
+              {rewardPayload.evolution && (
+                <p className="mt-2 text-sm text-gray-600">
+                  Your buddy reached stage {rewardPayload.evolution.new_stage}.
+                </p>
+              )}
             </CardContent>
           </Card>
         )}

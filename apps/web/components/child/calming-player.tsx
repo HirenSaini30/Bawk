@@ -7,8 +7,13 @@ import { Card, CardContent } from "@/components/ui/card";
 interface CalmingStep {
   instruction: string;
   duration_seconds?: number;
-  type: "breathing" | "grounding" | "visualization" | "choice";
-  choices?: Array<{ label: string; next_step: number }>;
+  type:
+    | "breathing"
+    | "grounding"
+    | "visualization"
+    | "movement"
+    | "sensory"
+    | "affirmation";
 }
 
 interface CalmingPlayerProps {
@@ -36,6 +41,7 @@ export function CalmingPlayer({ content, onComplete }: CalmingPlayerProps) {
   function startStep(idx: number) {
     setStepIndex(idx);
     const step = steps[idx];
+    if (timerRef.current) clearInterval(timerRef.current);
     if (step?.duration_seconds) {
       setCountdown(step.duration_seconds);
       timerRef.current = setInterval(() => {
@@ -59,16 +65,6 @@ export function CalmingPlayer({ content, onComplete }: CalmingPlayerProps) {
       setPhase("closing");
     } else {
       startStep(stepIndex + 1);
-    }
-  }
-
-  function handleChoice(nextStepIdx: number) {
-    if (timerRef.current) clearInterval(timerRef.current);
-    setCountdown(null);
-    if (nextStepIdx >= steps.length) {
-      setPhase("closing");
-    } else {
-      startStep(nextStepIdx);
     }
   }
 
@@ -128,7 +124,9 @@ export function CalmingPlayer({ content, onComplete }: CalmingPlayerProps) {
     breathing: "bg-calm-50 border-calm-200",
     grounding: "bg-calm-50 border-calm-200",
     visualization: "bg-yolk-50 border-yolk-200",
-    choice: "bg-primary-50 border-primary-200",
+    movement: "bg-primary-50 border-primary-200",
+    sensory: "bg-primary-50 border-primary-200",
+    affirmation: "bg-yolk-50 border-yolk-200",
   };
 
   return (
@@ -143,7 +141,9 @@ export function CalmingPlayer({ content, onComplete }: CalmingPlayerProps) {
             {step.type === "breathing" && "🌬️"}
             {step.type === "grounding" && "🌍"}
             {step.type === "visualization" && "🎨"}
-            {step.type === "choice" && "🤔"}
+            {step.type === "movement" && "🦋"}
+            {step.type === "sensory" && "🫶"}
+            {step.type === "affirmation" && "💛"}
           </div>
 
           <p className="text-kid-lg text-gray-800 font-medium">
@@ -156,30 +156,14 @@ export function CalmingPlayer({ content, onComplete }: CalmingPlayerProps) {
             </div>
           )}
 
-          {step.type === "choice" && step.choices ? (
-            <div className="space-y-3 max-w-sm mx-auto">
-              {step.choices.map((choice, i) => (
-                <Button
-                  key={i}
-                  variant="outline"
-                  size="lg"
-                  className="w-full"
-                  onClick={() => handleChoice(choice.next_step)}
-                >
-                  {choice.label}
-                </Button>
-              ))}
-            </div>
-          ) : (
-            <Button
-              variant="calm"
-              size="xl"
-              onClick={nextStep}
-              disabled={countdown !== null && countdown > 0}
-            >
-              {countdown === 0 ? "Continue" : "Next"}
-            </Button>
-          )}
+          <Button
+            variant="calm"
+            size="xl"
+            onClick={nextStep}
+            disabled={countdown !== null && countdown > 0}
+          >
+            {countdown === 0 ? "Continue" : "Next"}
+          </Button>
         </CardContent>
       </Card>
     </div>

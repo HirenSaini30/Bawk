@@ -5,6 +5,7 @@ import google.generativeai as genai
 from app.config import get_settings
 
 _configured = False
+DEFAULT_MODEL = "gemini-2.5-flash"
 
 SYSTEM_SAFETY_RULES = """You are a supportive assistant for neurodivergent children (ages 7-15) 
 practicing social skills. You MUST follow these rules at ALL times:
@@ -68,7 +69,8 @@ For each task, produce a JSON object matching the type:
     "intro_text": "Let's take a moment to feel calm.",
     "steps": [
       {{"instruction": "Take a deep breath in for 4 counts", "duration_seconds": 4, "type": "breathing"}},
-      {{"instruction": "Would you like to try breathing or grounding?", "type": "choice", "choices": [{{"label": "Breathing", "next_step": 0}}, {{"label": "Grounding", "next_step": 2}}]}}
+      {{"instruction": "Press your feet into the floor and notice the ground holding you up", "duration_seconds": 8, "type": "grounding"}},
+      {{"instruction": "Tell yourself: I can get through this one step at a time", "duration_seconds": 6, "type": "affirmation"}}
     ],
     "closing_text": "Great job taking care of yourself!"
   }}
@@ -114,6 +116,34 @@ Return ONLY the cleaned text, nothing else.
 
 Text: {text}"""
 
+UPSET_SUPPORT_PROMPT = """A child has pressed an "I feel upset" button and needs immediate support.
+
+Child age band: {age_band}
+Optional context: {context}
+
+Create a short, supportive calming plan as JSON with this exact shape:
+{{
+  "intro_text": "one or two warm sentences",
+  "steps": [
+    {{
+      "instruction": "clear child-friendly direction",
+      "duration_seconds": 10,
+      "type": "breathing"
+    }}
+  ],
+  "closing_text": "short encouraging close"
+}}
+
+Rules:
+- The AI decides the sequence. Do NOT ask the child to choose an exercise type.
+- Use 3 to 5 steps max.
+- Allowed step types: breathing, grounding, movement, sensory, affirmation, visualization.
+- Keep language gentle, direct, and simple.
+- Start with regulation, then grounding or reassurance, and end with encouragement.
+- Avoid therapy jargon, diagnosis language, and shame.
+- Suggest asking a helper only if needed, but do not make that the whole plan.
+- Return valid JSON only."""
+
 
 def _ensure_configured():
     global _configured
@@ -122,7 +152,7 @@ def _ensure_configured():
         _configured = True
 
 
-def _get_model(model_name: str = "gemini-1.5-flash"):
+def _get_model(model_name: str = DEFAULT_MODEL):
     _ensure_configured()
     return genai.GenerativeModel(
         model_name,
@@ -135,7 +165,7 @@ def _get_model(model_name: str = "gemini-1.5-flash"):
     )
 
 
-def _get_text_model(model_name: str = "gemini-1.5-flash"):
+def _get_text_model(model_name: str = DEFAULT_MODEL):
     _ensure_configured()
     return genai.GenerativeModel(
         model_name,
@@ -196,7 +226,7 @@ async def generate_feedback(
 
 async def transcribe_audio(audio_bytes: bytes, mime_type: str = "audio/webm") -> str:
     _ensure_configured()
-    model = genai.GenerativeModel("gemini-1.5-flash")
+    model = genai.GenerativeModel(DEFAULT_MODEL)
     response = model.generate_content(
         [
             "Transcribe this audio. Return ONLY the transcription text, nothing else.",
@@ -212,3 +242,67 @@ async def text_to_speech_text(text: str, age_band: str = "10-12") -> str:
     prompt = TTS_CLEAN_PROMPT.format(age_band=age_band, text=text)
     response = model.generate_content(prompt)
     return response.text.strip()
+
+
+async def generate_upset_support_plan(
+    age_band: str = "10-12",
+    context: str = "",
+) -> dict:
+    model = _get_model()
+    prompt = UPSET_SUPPORT_PROMPT.format(
+        age_band=age_band,
+        context=context or "No extra context provided.",
+    )
+    response = model.generate_content(prompt)
+    plan = json.loads(response.text)
+
+    steps = []
+    for raw_step in plan.get("steps", [])[:5]:
+        step_type = raw_step.get("type", "grounding")
+        if step_type not in {
+            "breathing",
+            "grounding",
+            "movement",
+            "sensory",
+            "affirmation",
+            "visualization",
+        }:
+            step_type = "grounding"
+        steps.append(
+            {
+                "instruction": raw_step.get("instruction", "Take one slow breath with me."),
+                "duration_seconds": raw_step.get("duration_seconds"),
+                "type": step_type,
+            }
+        )
+
+    if not steps:
+        steps = [
+            {
+                "instruction": "Take one slow breath in through your nose, then let it out slowly.",
+                "duration_seconds": 6,
+                "type": "breathing",
+            },
+            {
+                "instruction": "Look around and name three things you can see right now.",
+                "duration_seconds": 10,
+                "type": "grounding",
+            },
+            {
+                "instruction": "Press your feet into the floor and notice that you are safe right now.",
+                "duration_seconds": 8,
+                "type": "sensory",
+            },
+        ]
+
+    return {
+        "intro_text": plan.get(
+            "intro_text",
+            "I am here with you. We can take this one small step at a time.",
+        ),
+        "steps": steps,
+        "closing_text": plan.get(
+            "closing_text",
+            "You did a good job slowing down. If you still need help, you can ask your helper.",
+        ),
+    }

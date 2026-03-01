@@ -293,6 +293,7 @@ export default function AuthPage() {
           await supabase.from("profiles").upsert({
             id: data.user.id,
             role,
+            email,
             display_name: displayName || email.split("@")[0],
           });
           await redirectByRole(data.user.id);

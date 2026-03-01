@@ -1,51 +1,64 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CalmingPlayer } from "@/components/child/calming-player";
+import { requestUpsetSupport } from "@/lib/api";
 
-const QUICK_CALMING = {
-  intro_text: "It's okay to feel upset. Let's take a moment together to feel calmer.",
+const FALLBACK_SUPPORT = {
+  intro_text: "It is okay to feel upset. I will help you slow things down one step at a time.",
   steps: [
     {
-      instruction: "First, let's take a slow, deep breath in... hold it... and breathe out slowly.",
+      instruction: "Take one slow breath in through your nose, then let it out gently.",
       duration_seconds: 6,
       type: "breathing" as const,
     },
     {
-      instruction: "Great! Let's do that one more time. Breathe in slowly...",
-      duration_seconds: 6,
-      type: "breathing" as const,
+      instruction: "Press your feet into the floor and notice how solid the ground feels.",
+      duration_seconds: 8,
+      type: "sensory" as const,
     },
     {
-      instruction: "What would you like to try next?",
-      type: "choice" as const,
-      choices: [
-        { label: "More breathing", next_step: 0 },
-        { label: "Grounding exercise", next_step: 3 },
-        { label: "I feel better now", next_step: 5 },
-      ],
-    },
-    {
-      instruction: "Look around you. Can you name 3 things you can see right now? Take your time.",
+      instruction: "Look around and quietly name three things you can see.",
       duration_seconds: 10,
       type: "grounding" as const,
     },
     {
-      instruction: "Now, can you name 2 things you can hear? Listen carefully...",
+      instruction: "Tell yourself: I am safe, and this feeling can get smaller.",
       duration_seconds: 8,
-      type: "grounding" as const,
+      type: "affirmation" as const,
     },
   ],
-  closing_text: "You did a great job taking care of yourself! Remember, it's always okay to ask your helper for support.",
+  closing_text: "You did a good job taking care of yourself. If you still need help, ask your helper.",
 };
 
 export default function QuickCalmingPage() {
   const router = useRouter();
+  const [content, setContent] = useState(FALLBACK_SUPPORT);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    requestUpsetSupport()
+      .then((data) => {
+        if (data.support_plan?.steps?.length) {
+          setContent(data.support_plan as typeof FALLBACK_SUPPORT);
+        }
+      })
+      .catch(() => {
+        // Keep the fallback flow if AI support is unavailable.
+      })
+      .finally(() => setLoading(false));
+  }, []);
 
   return (
     <div className="kid-container py-8">
+      {loading && (
+        <div className="text-center text-sm text-gray-500 mb-6">
+          Creating a calming plan for you...
+        </div>
+      )}
       <CalmingPlayer
-        content={QUICK_CALMING}
+        content={content}
         onComplete={() => router.push("/child/home")}
       />
     </div>

@@ -1,11 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase-browser";
 import { Button } from "@/components/ui/button";
+
+const CHILD_NAV = [
+  { label: "Activities", href: "/child/home", match: ["/child/home", "/child/task"] },
+  { label: "Progress", href: "/child/progress" },
+  { label: "Pokemon", href: "/child/pokemon" },
+];
 
 export default function ChildLayout({
   children,
@@ -13,6 +19,7 @@ export default function ChildLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [userName, setUserName] = useState("");
   const [checkingAccess, setCheckingAccess] = useState(true);
 
@@ -74,17 +81,33 @@ export default function ChildLayout({
           <span>bawk</span>
         </Link>
         <div className="flex items-center gap-3">
-          <Link href="/child/pokemon">
-            <Button variant="secondary" size="sm">
-              My Pokemon
-            </Button>
-          </Link>
           <span className="text-sm text-gray-500">{userName}</span>
           <Button variant="ghost" size="sm" onClick={handleSignOut}>
             Sign Out
           </Button>
         </div>
       </header>
+
+      <nav className="border-b border-tan-200 bg-white/70 px-4 py-3 backdrop-blur">
+        <div className="mx-auto flex max-w-5xl gap-2 overflow-x-auto">
+          {CHILD_NAV.map((item) => {
+            const active =
+              pathname === item.href ||
+              item.match?.some((prefix) => pathname.startsWith(prefix));
+            return (
+              <Link key={item.href} href={item.href}>
+                <Button
+                  variant={active ? "primary" : "outline"}
+                  size="sm"
+                  className="whitespace-nowrap"
+                >
+                  {item.label}
+                </Button>
+              </Link>
+            );
+          })}
+        </div>
+      </nav>
 
       <div className="fixed bottom-4 left-4 z-50">
         <Button

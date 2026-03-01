@@ -1,9 +1,8 @@
-"""JWT verification and role-based access control using Supabase tokens."""
+"""Token verification and role-based access control using Supabase auth."""
 
 from fastapi import Depends, HTTPException, Request
-from jose import JWTError, jwt
 from pydantic import BaseModel
-from app.config import get_settings, Settings
+from app.db import get_profile_role, get_supabase
 
 
 class AuthUser(BaseModel):
@@ -20,37 +19,38 @@ def _extract_token(request: Request) -> str:
 
 
 async def get_current_user(
-    request: Request, settings: Settings = Depends(get_settings)
+    request: Request,
 ) -> AuthUser:
     token = _extract_token(request)
+
     try:
-        payload = jwt.decode(
-            token,
-            settings.supabase_jwt_secret,
-            algorithms=["HS256"],
-            audience="authenticated",
-        )
-    except JWTError:
+        user_response = get_supabase().auth.get_user(token)
+    except Exception:
         raise HTTPException(status_code=401, detail="Invalid token")
 
-    user_id = payload.get("sub")
+    auth_user = getattr(user_response, "user", None)
+    user_id = getattr(auth_user, "id", None)
     if not user_id:
         raise HTTPException(status_code=401, detail="Invalid token payload")
 
-    role = payload.get("user_metadata", {}).get("role")
+    user_metadata = getattr(auth_user, "user_metadata", {}) or {}
+    app_metadata = getattr(auth_user, "app_metadata", {}) or {}
+
+    role = user_metadata.get("role")
     if not role:
-        role = payload.get("app_metadata", {}).get("role")
+        role = app_metadata.get("role")
     if not role:
-        from app.db import get_profile_role
         role = await get_profile_role(user_id)
 
     if role not in ("child", "supervisor"):
         raise HTTPException(status_code=403, detail="Unknown role")
 
+    request.state.user_id = user_id
+
     return AuthUser(
         id=user_id,
         role=role,
-        email=payload.get("email"),
+        email=getattr(auth_user, "email", None),
     )
 
 

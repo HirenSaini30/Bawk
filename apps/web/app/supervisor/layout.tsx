@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase-browser";
@@ -23,11 +23,10 @@ const C = {
 
 /* ── Sidebar nav items ───────────────────────────────────── */
 const NAV_ITEMS = [
-  { label: "Dashboard", href: "/supervisor/dashboard" },
-  { label: "Clients", href: "/supervisor/dashboard" },
-  { label: "Goals", href: "/supervisor/dashboard" },
-  { label: "Reports", href: "/supervisor/dashboard" },
-  { label: "Settings", href: "/supervisor/dashboard" },
+  { label: "Dashboard", href: "/supervisor/dashboard?tab=dashboard", tab: "dashboard" },
+  { label: "Clients", href: "/supervisor/dashboard?tab=clients", tab: "clients" },
+  { label: "Goals", href: "/supervisor/dashboard?tab=goals", tab: "goals" },
+  { label: "Reports", href: "/supervisor/dashboard?tab=reports", tab: "reports" },
 ];
 
 function SidebarItem({
@@ -62,8 +61,10 @@ export default function SupervisorLayout({
 }) {
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [userName, setUserName] = useState("");
   const [checkingAccess, setCheckingAccess] = useState(true);
+  const currentTab = searchParams.get("tab") || "dashboard";
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
@@ -146,11 +147,7 @@ export default function SupervisorLayout({
             <SidebarItem
               key={item.label}
               href={item.href}
-              active={
-                item.label === "Dashboard"
-                  ? pathname === "/supervisor/dashboard"
-                  : false
-              }
+              active={pathname === "/supervisor/dashboard" && currentTab === item.tab}
             >
               {item.label}
             </SidebarItem>
@@ -203,8 +200,31 @@ export default function SupervisorLayout({
         </div>
       </div>
 
+      <div
+        className="md:hidden fixed top-14 left-0 right-0 z-40 bg-white border-b px-3 py-2 flex gap-2 overflow-x-auto"
+        style={{ borderColor: C.border }}
+      >
+        {NAV_ITEMS.map((item) => (
+          <Link
+            key={item.label}
+            href={item.href}
+            className={[
+              "shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium",
+              currentTab === item.tab
+                ? "bg-orange-50 text-orange-700 border-orange-200"
+                : "bg-white text-gray-600",
+            ].join(" ")}
+            style={
+              currentTab === item.tab ? undefined : { borderColor: C.border }
+            }
+          >
+            {item.label}
+          </Link>
+        ))}
+      </div>
+
       {/* ── MAIN CONTENT ─────────────────────────────────── */}
-      <main className="flex-1 min-w-0 md:pt-0 pt-14">
+      <main className="flex-1 min-w-0 md:pt-0 pt-28 md:pt-0">
         {children}
       </main>
     </div>

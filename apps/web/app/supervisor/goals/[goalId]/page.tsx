@@ -3,11 +3,11 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { getGoal, generateTasks } from "@/lib/api";
+import { getGoal, generateTasks, listChildren } from "@/lib/api";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { TASK_TYPE_LABELS, CATEGORY_LABELS } from "@/lib/utils";
+import { TASK_TYPE_LABELS, CATEGORY_LABELS, todayISO } from "@/lib/utils";
 
 const TASK_TYPES = [
   { key: "social_story", label: "Social Story" },
@@ -26,6 +26,10 @@ export default function GoalDetailPage() {
   const [generating, setGenerating] = useState(false);
   const [selectedTypes, setSelectedTypes] = useState<string[]>(["social_story"]);
   const [genCount, setGenCount] = useState(1);
+  const [assignNow, setAssignNow] = useState(true);
+  const [clients, setClients] = useState<any[]>([]);
+  const [assignAllClients, setAssignAllClients] = useState(false);
+  const [selectedClientIds, setSelectedClientIds] = useState<string[]>([]);
 
   async function loadGoal() {
     try {
@@ -42,6 +46,12 @@ export default function GoalDetailPage() {
     loadGoal();
   }, [goalId]);
 
+  useEffect(() => {
+    listChildren()
+      .then((result) => setClients(result.children ?? []))
+      .catch(console.error);
+  }, []);
+
   async function handleGenerate() {
     if (selectedTypes.length === 0) return;
     setGenerating(true);
@@ -50,6 +60,9 @@ export default function GoalDetailPage() {
         goal_id: goalId,
         desired_task_types: selectedTypes,
         count: genCount,
+        auto_assign_dates: assignNow ? [todayISO()] : undefined,
+        target_child_ids: selectedClientIds,
+        assign_all_linked_children: assignAllClients,
       });
       await loadGoal();
     } catch (err: any) {
@@ -62,6 +75,14 @@ export default function GoalDetailPage() {
   function toggleType(type: string) {
     setSelectedTypes((prev) =>
       prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]
+    );
+  }
+
+  function toggleClient(clientId: string) {
+    setSelectedClientIds((prev) =>
+      prev.includes(clientId)
+        ? prev.filter((id) => id !== clientId)
+        : [...prev, clientId]
     );
   }
 
@@ -159,12 +180,68 @@ export default function GoalDetailPage() {
             </select>
           </div>
 
+          <label className="flex items-center gap-3 text-sm text-gray-700">
+            <input
+              type="checkbox"
+              checked={assignNow}
+              onChange={(e) => setAssignNow(e.target.checked)}
+              className="h-4 w-4 rounded border-tan-200"
+            />
+            Assign generated tasks to the client now
+          </label>
+
+          <div className="space-y-3 rounded-kid border border-tan-200 p-4">
+            <div>
+              <div className="text-sm font-medium text-gray-700">
+                Add clients to each generated task
+              </div>
+              <p className="mt-1 text-sm text-gray-500">
+                The goal&apos;s main client is always included. Add more linked clients or send to everyone.
+              </p>
+            </div>
+
+            <label className="flex items-center gap-3 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                checked={assignAllClients}
+                onChange={(e) => setAssignAllClients(e.target.checked)}
+                className="h-4 w-4 rounded border-tan-200"
+              />
+              Include all linked clients
+            </label>
+
+            {!assignAllClients && clients.length > 1 && (
+              <div className="grid gap-2 sm:grid-cols-2">
+                {clients
+                  .filter((client) => client.id !== goal.child_id)
+                  .map((client) => (
+                    <label
+                      key={client.id}
+                      className="flex items-center gap-3 rounded-kid border border-tan-200 px-3 py-3 text-sm text-gray-700"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedClientIds.includes(client.id)}
+                        onChange={() => toggleClient(client.id)}
+                        className="h-4 w-4 rounded border-tan-200"
+                      />
+                      <span>{client.display_name}</span>
+                    </label>
+                  ))}
+              </div>
+            )}
+          </div>
+
           <Button
             onClick={handleGenerate}
             disabled={generating || selectedTypes.length === 0}
             size="lg"
           >
-            {generating ? "Generating..." : "Generate Tasks"}
+            {generating
+              ? "Generating..."
+              : assignNow
+              ? "Generate & Assign"
+              : "Generate Tasks"}
           </Button>
         </CardContent>
       </Card>

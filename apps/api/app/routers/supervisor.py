@@ -3,6 +3,7 @@
 from datetime import date, timedelta
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
+from postgrest.exceptions import APIError
 from app.auth import AuthUser, require_supervisor
 from app.db import get_supabase, verify_supervisor_child_link, audit_log
 
@@ -10,7 +11,8 @@ router = APIRouter(prefix="/supervisor", tags=["supervisor"])
 
 
 class CreateGoalRequest(BaseModel):
-    child_id: str
+    child_id: str | None = None
+    child_ids: list[str] = Field(default=[])
     title: str = Field(min_length=1, max_length=200)
     description: str = Field(default="", max_length=2000)
     category: str
@@ -28,6 +30,10 @@ class UpdateGoalRequest(BaseModel):
     active: bool | None = None
 
 
+class LinkChildRequest(BaseModel):
+    child_email: str = Field(min_length=3, max_length=320)
+
+
 @router.get("/children")
 async def list_children(user: AuthUser = Depends(require_supervisor)):
     sb = get_supabase()
@@ -43,6 +49,71 @@ async def list_children(user: AuthUser = Depends(require_supervisor)):
         if profile:
             children.append(profile)
     return {"children": children}
+
+
+@router.post("/children/link")
+async def link_child(
+    body: LinkChildRequest,
+    user: AuthUser = Depends(require_supervisor),
+):
+    child_email = body.child_email.strip().lower()
+    if not child_email:
+        raise HTTPException(400, "Child email is required")
+
+    if user.email and child_email == user.email.lower():
+        raise HTTPException(400, "You cannot link yourself as a child")
+
+    sb = get_supabase()
+    try:
+        child_profile = (
+            sb.table("profiles")
+            .select("id, role, display_name, age_band, email")
+            .eq("email", child_email)
+            .single()
+            .execute()
+        )
+    except APIError as exc:
+        if exc.message == "column profiles.email does not exist":
+            raise HTTPException(
+                500,
+                "Supabase is missing the profiles.email column. Run migration 002_profiles_email.sql and try again.",
+            )
+        raise
+
+    if not child_profile.data:
+        raise HTTPException(
+            404,
+            "No child profile found for that email. Ask the child to create an account first.",
+        )
+
+    if child_profile.data["role"] != "child":
+        raise HTTPException(400, "That account is not a child account")
+
+    link_result = (
+        sb.table("supervisor_child")
+        .upsert(
+            {
+                "supervisor_id": user.id,
+                "child_id": child_profile.data["id"],
+            },
+            on_conflict="supervisor_id,child_id",
+        )
+        .execute()
+    )
+
+    await audit_log(
+        user.id,
+        "link_child",
+        "profile",
+        child_profile.data["id"],
+        {"child_email": child_email},
+    )
+
+    return {
+        "linked": True,
+        "child": child_profile.data,
+        "link": link_result.data[0] if link_result.data else None,
+    }
 
 
 @router.get("/child/{child_id}")
@@ -83,34 +154,42 @@ async def get_child_detail(
 async def create_goal(
     body: CreateGoalRequest, user: AuthUser = Depends(require_supervisor)
 ):
-    if not await verify_supervisor_child_link(user.id, body.child_id):
-        raise HTTPException(403, "Not linked to this child")
-
     valid_categories = {"conversation", "self_regulation", "help_seeking", "values", "other"}
     if body.category not in valid_categories:
         raise HTTPException(400, f"Invalid category: {body.category}")
 
+    child_ids = list(dict.fromkeys([*(body.child_ids or []), *( [body.child_id] if body.child_id else [])]))
+    if not child_ids:
+        raise HTTPException(400, "Select at least one client")
+
     sb = get_supabase()
-    result = (
-        sb.table("goals")
-        .insert(
-            {
-                "supervisor_id": user.id,
-                "child_id": body.child_id,
-                "title": body.title,
-                "description": body.description,
-                "category": body.category,
-                "difficulty": body.difficulty,
-                "success_criteria": body.success_criteria,
-                "constraints": body.constraints,
-            }
-        )
-        .execute()
-    )
+    for child_id in child_ids:
+        if not await verify_supervisor_child_link(user.id, child_id):
+            raise HTTPException(403, "Not linked to one or more selected clients")
 
-    await audit_log(user.id, "create_goal", "goal", result.data[0]["id"] if result.data else "")
+    payload = [
+        {
+            "supervisor_id": user.id,
+            "child_id": child_id,
+            "title": body.title,
+            "description": body.description,
+            "category": body.category,
+            "difficulty": body.difficulty,
+            "success_criteria": body.success_criteria,
+            "constraints": body.constraints,
+        }
+        for child_id in child_ids
+    ]
+    result = sb.table("goals").insert(payload).execute()
 
-    return result.data[0] if result.data else {}
+    for goal in result.data or []:
+        await audit_log(user.id, "create_goal", "goal", goal["id"], {"child_id": goal["child_id"]})
+
+    created = result.data or []
+    return {
+        "goal": created[0] if created else {},
+        "goals": created,
+    }
 
 
 @router.patch("/goals/{goal_id}")

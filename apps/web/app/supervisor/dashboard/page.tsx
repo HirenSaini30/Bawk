@@ -2,608 +2,512 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { listChildren, getChildProgress } from "@/lib/api";
+import { useSearchParams } from "next/navigation";
+import {
+  getChildDetail,
+  getChildProgress,
+  linkChildByEmail,
+  listChildren,
+  updateGoal,
+} from "@/lib/api";
 
-/* ══════════════════════════════════════════════════════════
-   Chicken palette tokens (warm whites + orange + yolk yellow)
-   ══════════════════════════════════════════════════════════ */
 const C = {
-  bg: "#FFF7ED",
-  panel: "#FFFFFF",
-  panelTint: "#FFFBF5",
   border: "#F1E3D2",
-  text: "#1F2937",
-  muted: "#6B7280",
-  orange: "#F97316",
-  orangeDeep: "#EA580C",
-  orangeSoft: "#FFEDD5",
-  yolk: "#FBBF24",
-  yolkSoft: "#FEF3C7",
+  panelTint: "#FFFBF5",
 };
 
-/* ── Helpers ────────────────────────────────────────────── */
+type ChildRecord = {
+  id: string;
+  display_name: string;
+  age_band?: string;
+};
+
+type GoalRow = {
+  id: string;
+  title: string;
+  category: string;
+  difficulty: number;
+  active: boolean;
+  childId: string;
+  childName: string;
+  completed: number;
+  total: number;
+};
+
 function cls(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
 }
 
-/* ══════════════════════════════════════════════════════════
-   Small UI primitives (Tailwind-only, no shadcn)
-   ══════════════════════════════════════════════════════════ */
-
-function DashCard({
-  children,
-  accent,
-  className = "",
-}: {
-  children: React.ReactNode;
-  accent?: "orange" | "yolk";
-  className?: string;
-}) {
-  const accentStyle =
-    accent === "orange"
-      ? { borderTopColor: C.orange, borderTopWidth: 3 }
-      : accent === "yolk"
-      ? { borderTopColor: C.yolk, borderTopWidth: 3 }
-      : undefined;
-
-  return (
-    <div
-      className={cls("rounded-xl border bg-white shadow-sm", className)}
-      style={{ borderColor: C.border, ...accentStyle }}
-    >
-      {children}
-    </div>
-  );
-}
-
-function ClientCard({
-  name,
-  active,
+function Panel({
+  title,
   subtitle,
-  onClick,
-}: {
-  name: string;
-  active?: boolean;
-  subtitle?: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cls(
-        "min-w-[170px] rounded-lg border px-4 py-4 transition cursor-pointer text-left",
-        "focus:outline-none focus:ring-2 focus:ring-orange-300",
-        active
-          ? "bg-orange-50 border-orange-300"
-          : "bg-white border-[#F1E3D2] hover:bg-orange-50"
-      )}
-    >
-      <div className="flex items-center gap-3">
-        <div
-          className={cls(
-            "h-10 w-10 rounded-full grid place-items-center border shrink-0",
-            active
-              ? "bg-orange-100 border-orange-200"
-              : "bg-[#FFF3E8] border-[#F1E3D2]"
-          )}
-        >
-          <span className="text-sm font-semibold text-orange-700">
-            {name.slice(0, 1).toUpperCase()}
-          </span>
-        </div>
-        <div className="min-w-0">
-          <div className="text-sm font-semibold text-gray-900 truncate">
-            {name}
-          </div>
-          <div className="text-xs text-gray-600 truncate">
-            {subtitle ?? "Active client"}
-          </div>
-        </div>
-      </div>
-    </button>
-  );
-}
-
-function ActionButton({
   children,
-  tone = "neutral",
-  href,
+  action,
 }: {
+  title: string;
+  subtitle?: string;
   children: React.ReactNode;
-  tone?: "neutral" | "orange";
-  href?: string;
+  action?: React.ReactNode;
 }) {
-  const classes = cls(
-    "w-full rounded-lg border px-4 py-3 text-sm font-medium transition text-center block",
-    "focus:outline-none focus:ring-2 focus:ring-orange-300",
-    tone === "orange"
-      ? "bg-orange-600 text-white border-orange-600 hover:bg-orange-700"
-      : "bg-white text-gray-800 hover:bg-orange-50"
-  );
-  const style = tone === "neutral" ? { borderColor: C.border } : undefined;
-
-  if (href) {
-    return (
-      <Link href={href} className={classes} style={style}>
-        {children}
-      </Link>
-    );
-  }
-
   return (
-    <button type="button" className={classes} style={style}>
-      {children}
-    </button>
+    <section
+      className="rounded-2xl border bg-white shadow-sm"
+      style={{ borderColor: C.border }}
+    >
+      <div className="flex flex-col gap-3 border-b px-6 py-5 sm:flex-row sm:items-center sm:justify-between" style={{ borderColor: C.border }}>
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
+          {subtitle && <p className="mt-1 text-sm text-gray-600">{subtitle}</p>}
+        </div>
+        {action}
+      </div>
+      <div className="p-6">{children}</div>
+    </section>
   );
 }
 
-function Segmented({
+function StatCard({
+  label,
   value,
-  onChange,
-  options,
 }: {
-  value: string;
-  onChange: (v: string) => void;
-  options: Array<{ label: string; value: string }>;
+  label: string;
+  value: string | number;
 }) {
   return (
     <div
-      className="inline-flex rounded-lg border p-1"
+      className="rounded-xl border px-4 py-4"
       style={{ borderColor: C.border, background: C.panelTint }}
     >
-      {options.map((opt) => {
-        const active = opt.value === value;
-        return (
-          <button
-            key={opt.value}
-            type="button"
-            onClick={() => onChange(opt.value)}
-            className={cls(
-              "rounded-md px-3 py-1.5 text-xs font-medium transition",
-              "focus:outline-none focus:ring-2 focus:ring-orange-300",
-              active
-                ? "bg-white text-gray-900 shadow-sm"
-                : "text-gray-700 hover:bg-white"
-            )}
-            style={active ? { border: `1px solid ${C.border}` } : undefined}
-          >
-            {opt.label}
-          </button>
-        );
-      })}
+      <div className="text-xs text-gray-500">{label}</div>
+      <div className="mt-1 text-2xl font-semibold text-gray-900">{value}</div>
     </div>
   );
 }
 
-/* ══════════════════════════════════════════════════════════
-   SVG Line Chart (no external chart library)
-   ══════════════════════════════════════════════════════════ */
+export default function SupervisorDashboardPage() {
+  const searchParams = useSearchParams();
+  const currentTab = searchParams.get("tab") || "dashboard";
 
-type SeriesPoint = { day: string; value: number };
+  const [clients, setClients] = useState<ChildRecord[]>([]);
+  const [progressData, setProgressData] = useState<Record<string, any>>({});
+  const [detailData, setDetailData] = useState<Record<string, any>>({});
+  const [loading, setLoading] = useState(true);
+  const [linkEmail, setLinkEmail] = useState("");
+  const [linking, setLinking] = useState(false);
+  const [linkMessage, setLinkMessage] = useState("");
+  const [linkError, setLinkError] = useState("");
+  const [goalActionId, setGoalActionId] = useState<string | null>(null);
 
-function SimpleLineChart({
-  data,
-  unit,
-  height = 240,
-}: {
-  data: SeriesPoint[];
-  unit: string;
-  height?: number;
-}) {
-  const width = 920;
-  const padding = { l: 48, r: 18, t: 14, b: 28 };
+  async function hydrateClients(nextClients: ChildRecord[]) {
+    await Promise.allSettled(
+      nextClients.map(async (client) => {
+        const [progress, detail] = await Promise.all([
+          getChildProgress(client.id).catch(() => null),
+          getChildDetail(client.id).catch(() => null),
+        ]);
 
-  if (data.length === 0) {
-    return (
-      <div
-        className="flex items-center justify-center rounded-xl border text-sm"
-        style={{
-          height,
-          borderColor: C.border,
-          background: C.panelTint,
-          color: C.muted,
-        }}
-      >
-        No data available yet
-      </div>
+        if (progress) {
+          setProgressData((prev) => ({ ...prev, [client.id]: progress }));
+        }
+        if (detail) {
+          setDetailData((prev) => ({ ...prev, [client.id]: detail }));
+        }
+      })
     );
   }
 
-  const vals = data.map((d) => d.value);
-  const minY = Math.min(...vals);
-  const maxY = Math.max(...vals);
-  const yPad = Math.max(6, Math.round((maxY - minY) * 0.2));
-  const y0 = Math.max(0, minY - yPad);
-  const y1 = maxY + yPad;
+  async function loadWorkspace() {
+    const result = await listChildren();
+    const nextClients = result.children ?? [];
+    setClients(nextClients);
+    await hydrateClients(nextClients);
+  }
 
-  const xStep =
-    (width - padding.l - padding.r) / Math.max(1, data.length - 1);
-  const toX = (i: number) => padding.l + i * xStep;
-  const toY = (v: number) => {
-    const t = (v - y0) / Math.max(1, y1 - y0);
-    return padding.t + (1 - t) * (height - padding.t - padding.b);
-  };
-
-  const path = data
-    .map(
-      (d, i) =>
-        `${i === 0 ? "M" : "L"} ${toX(i).toFixed(2)} ${toY(d.value).toFixed(2)}`
-    )
-    .join(" ");
-
-  const yTicks = 4;
-  const ticks = Array.from({ length: yTicks + 1 }).map((_, i) => {
-    const t = i / yTicks;
-    const v = Math.round(y0 + (1 - t) * (y1 - y0));
-    return { v, y: toY(v) };
-  });
-
-  return (
-    <div className="w-full overflow-x-auto">
-      <svg
-        viewBox={`0 0 ${width} ${height}`}
-        width="100%"
-        height={height}
-        className="block"
-        role="img"
-        aria-label={`Line chart showing ${unit} over time`}
-      >
-        {/* grid + y labels */}
-        {ticks.map((tk, idx) => (
-          <g key={idx}>
-            <line
-              x1={padding.l}
-              x2={width - padding.r}
-              y1={tk.y}
-              y2={tk.y}
-              stroke={C.border}
-              strokeDasharray="3 6"
-            />
-            <text
-              x={padding.l - 10}
-              y={tk.y + 4}
-              textAnchor="end"
-              fontSize={11}
-              fill={C.muted}
-            >
-              {tk.v}
-              {unit}
-            </text>
-          </g>
-        ))}
-
-        {/* x labels */}
-        {data.map((d, i) => (
-          <text
-            key={d.day}
-            x={toX(i)}
-            y={height - 8}
-            textAnchor="middle"
-            fontSize={11}
-            fill={C.muted}
-          >
-            {d.day}
-          </text>
-        ))}
-
-        {/* line glow */}
-        <path d={path} fill="none" stroke={C.orangeSoft} strokeWidth={8} />
-
-        {/* main line */}
-        <path d={path} fill="none" stroke={C.orange} strokeWidth={3} />
-
-        {/* data points */}
-        {data.map((d, i) => (
-          <g key={i}>
-            <circle cx={toX(i)} cy={toY(d.value)} r={6} fill={C.yolkSoft} />
-            <circle cx={toX(i)} cy={toY(d.value)} r={3} fill={C.orangeDeep} />
-          </g>
-        ))}
-      </svg>
-    </div>
-  );
-}
-
-/* ══════════════════════════════════════════════════════════
-   Mock progress data generator
-   ── TODO: Replace with real backend data when available ──
-   ══════════════════════════════════════════════════════════ */
-
-function generateMockMinutes(seed: string): SeriesPoint[] {
-  // Deterministic-ish mock based on name length
-  const base = 15 + (seed.length % 10) * 2;
-  const days = ["Mon", "Tue", "Wed", "Thu", "Fri"];
-  return days.map((day, i) => ({
-    day,
-    value: base + ((i * 7 + seed.charCodeAt(0)) % 12),
-  }));
-}
-
-function generateMockCompletion(seed: string): SeriesPoint[] {
-  const base = 50 + (seed.length % 8) * 5;
-  const days = ["Mon", "Tue", "Wed", "Thu", "Fri"];
-  return days.map((day, i) => ({
-    day,
-    value: Math.min(100, base + ((i * 5 + seed.charCodeAt(0)) % 20)),
-  }));
-}
-
-/* ══════════════════════════════════════════════════════════
-   MAIN PAGE COMPONENT
-   ══════════════════════════════════════════════════════════ */
-
-export default function SupervisorDashboard() {
-  /* ── State ─────────────────────────────────────────────── */
-  const [clients, setClients] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedIdx, setSelectedIdx] = useState(0);
-  const [metric, setMetric] = useState<"avg_minutes" | "completion">(
-    "avg_minutes"
-  );
-  const [progressData, setProgressData] = useState<Record<string, any>>({});
-
-  /* ── Fetch children (mapped to "clients" in UI) ────────── */
   useEffect(() => {
-    listChildren()
-      .then((data) => {
-        // Backend returns { children: [...] } — map to clients in frontend only
-        const clientsList = data.children ?? [];
-        setClients(clientsList);
-
-        // Try to fetch real progress for each client
-        clientsList.forEach((child: any) => {
-          getChildProgress(child.id)
-            .then((prog) => {
-              setProgressData((prev) => ({
-                ...prev,
-                [child.id]: prog,
-              }));
-            })
-            .catch(() => {
-              // If progress endpoint fails, we'll fall back to mock data
-            });
-        });
-      })
+    loadWorkspace()
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
 
-  /* ── Derived values ────────────────────────────────────── */
-  const selectedClient = clients[selectedIdx] ?? null;
-  const clientName = selectedClient?.display_name ?? "Client";
-  const clientId = selectedClient?.id;
+  const clientRows = useMemo(() => {
+    return clients.map((client) => {
+      const progress = progressData[client.id];
+      const detail = detailData[client.id];
+      return {
+        id: client.id,
+        name: client.display_name,
+        ageBand: client.age_band || "Not set",
+        completed7d: progress?.total_completed_7d ?? 0,
+        completed30d: progress?.total_completed_30d ?? 0,
+        activeGoals:
+          detail?.goals?.filter((goal: any) => goal.active !== false).length ?? 0,
+        totalTasks: detail?.tasks?.length ?? 0,
+        difficultySignals: progress?.difficulty_signals?.length ?? 0,
+      };
+    });
+  }, [clients, detailData, progressData]);
 
-  // Build chart series: try real data first, fall back to mock
-  // TODO: Wire real progress data when backend returns daily breakdown
-  const series: SeriesPoint[] = useMemo(() => {
-    if (metric === "avg_minutes") {
-      return generateMockMinutes(clientName);
+  const allGoals = useMemo<GoalRow[]>(() => {
+    return clients.flatMap((client) => {
+      const detail = detailData[client.id];
+      const progress = progressData[client.id];
+      const byGoal = new Map<string, { completed: number; total: number }>();
+
+      for (const row of progress?.by_goal ?? []) {
+        byGoal.set(row.goal_id, {
+          completed: row.completed ?? 0,
+          total: row.total ?? 0,
+        });
+      }
+
+      return (detail?.goals ?? []).map((goal: any) => {
+        const stats = byGoal.get(goal.id) ?? { completed: 0, total: 0 };
+        return {
+          id: goal.id,
+          title: goal.title,
+          category: goal.category,
+          difficulty: goal.difficulty,
+          active: goal.active !== false,
+          childId: client.id,
+          childName: client.display_name,
+          completed: stats.completed,
+          total: stats.total,
+        };
+      });
+    });
+  }, [clients, detailData, progressData]);
+
+  const reportStats = useMemo(() => {
+    const totalCompleted7d = clientRows.reduce((sum, row) => sum + row.completed7d, 0);
+    const totalCompleted30d = clientRows.reduce(
+      (sum, row) => sum + row.completed30d,
+      0
+    );
+    const flaggedClients = clientRows.filter((row) => row.difficultySignals > 0).length;
+    const achievedGoals = allGoals.filter(
+      (goal) => goal.total > 0 && goal.completed >= goal.total
+    ).length;
+
+    return {
+      totalClients: clients.length,
+      totalCompleted7d,
+      totalCompleted30d,
+      activeGoals: allGoals.filter((goal) => goal.active).length,
+      achievedGoals,
+      flaggedClients,
+    };
+  }, [allGoals, clientRows, clients.length]);
+
+  async function handleLinkClient() {
+    const email = linkEmail.trim().toLowerCase();
+    if (!email) {
+      setLinkError("Enter the email address the child used to sign up.");
+      return;
     }
-    return generateMockCompletion(clientName);
-  }, [clientName, metric]);
 
-  const avg =
-    series.length === 0
-      ? 0
-      : Math.round(series.reduce((a, b) => a + b.value, 0) / series.length);
+    setLinking(true);
+    setLinkError("");
+    setLinkMessage("");
+    try {
+      const result = await linkChildByEmail(email);
+      setLinkEmail("");
+      setLinkMessage(`Linked ${result.child.display_name} successfully.`);
+      await loadWorkspace();
+    } catch (error: any) {
+      setLinkError(error.message || "Could not link that client.");
+    } finally {
+      setLinking(false);
+    }
+  }
 
-  // Summary stat cards from real progress data when available
-  const realProgress = clientId ? progressData[clientId] : null;
-  const completed7d = realProgress?.total_completed_7d ?? "—";
-  const completed30d = realProgress?.total_completed_30d ?? "—";
+  async function handleToggleGoal(goal: GoalRow) {
+    setGoalActionId(goal.id);
+    try {
+      await updateGoal(goal.id, { active: !goal.active });
+      await loadWorkspace();
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setGoalActionId(null);
+    }
+  }
 
-  /* ── Loading state ─────────────────────────────────────── */
   if (loading) {
-  return (
-      <div
-        className="flex items-center justify-center min-h-[60vh] text-sm"
-        style={{ color: C.muted }}
-      >
-        Loading clients...
-      </div>
-    );
-  }
-
-  /* ── Empty state ───────────────────────────────────────── */
-  if (clients.length === 0) {
     return (
-      <div className="p-8">
-        <DashCard>
-          <div className="p-10 text-center">
-            <p className="text-gray-600 mb-2 text-base">No clients linked yet.</p>
-            <p className="text-sm" style={{ color: C.muted }}>
-              Link clients through the Supabase dashboard or admin panel.
-            </p>
-          </div>
-        </DashCard>
+      <div className="p-6 lg:p-8 text-sm text-gray-500">
+        Loading supervisor workspace...
       </div>
     );
   }
 
-  /* ── Main dashboard ────────────────────────────────────── */
-  return (
-    <div className="p-6 lg:p-8 space-y-8">
-      {/* ─── TOP: LIST OF CLIENTS ───────────────────────── */}
-      <DashCard accent="yolk">
-        <div className="p-6">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
-            <div>
-              <h2 className="text-base font-semibold text-gray-900">
-                List of Clients
-              </h2>
-              <p className="text-xs" style={{ color: C.muted }}>
-                Select a client to view progress and manage plans.
-              </p>
-            </div>
-            <Segmented
-              value={metric}
-              onChange={(v) => setMetric(v as "avg_minutes" | "completion")}
-              options={[
-                { label: "Avg minutes", value: "avg_minutes" },
-                { label: "Completion %", value: "completion" },
-              ]}
-            />
-          </div>
+  const renderEmptyClientsPanel = () => (
+    <Panel
+      title="Add your first client"
+      subtitle="Enter the email address the child used to create their account."
+    >
+      <div className="flex flex-col gap-3 md:flex-row">
+        <input
+          value={linkEmail}
+          onChange={(event) => setLinkEmail(event.target.value)}
+          placeholder="child@example.com"
+          className="flex-1 rounded-xl border px-4 py-3 text-sm"
+          style={{ borderColor: C.border }}
+        />
+        <button
+          type="button"
+          onClick={handleLinkClient}
+          disabled={linking}
+          className="rounded-xl bg-orange-600 px-5 py-3 text-sm font-medium text-white disabled:opacity-50"
+        >
+          {linking ? "Linking..." : "Link Client"}
+        </button>
+      </div>
+      {linkError && <p className="mt-3 text-sm text-red-600">{linkError}</p>}
+      {linkMessage && <p className="mt-3 text-sm text-green-700">{linkMessage}</p>}
+    </Panel>
+  );
 
-          <div className="flex gap-4 overflow-x-auto pb-1 scrollbar-thin">
-            {clients.map((c, i) => (
-              <ClientCard
-                key={c.id}
-                name={c.display_name}
-                subtitle={c.age_band ? `Age band: ${c.age_band}` : undefined}
-                active={selectedIdx === i}
-                onClick={() => setSelectedIdx(i)}
-              />
+  const renderDashboard = () => (
+    <div className="space-y-6">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard label="Clients" value={reportStats.totalClients} />
+        <StatCard label="Active Goals" value={reportStats.activeGoals} />
+        <StatCard label="Completed (7 days)" value={reportStats.totalCompleted7d} />
+        <StatCard label="Flagged Clients" value={reportStats.flaggedClients} />
+      </div>
+      <Panel
+        title="Supervisor overview"
+        subtitle="A quick view of your current caseload."
+      >
+        {clients.length === 0 ? (
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600">
+              No clients are linked yet, so there are no dashboard metrics to show.
+            </p>
+            <Link
+              href="/supervisor/dashboard?tab=clients"
+              className="inline-flex rounded-xl bg-orange-600 px-4 py-2.5 text-sm font-medium text-white"
+            >
+              Go to Clients
+            </Link>
+          </div>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {clientRows.map((client) => (
+              <Link
+                key={client.id}
+                href={`/supervisor/child/${client.id}`}
+                className="rounded-xl border p-4 hover:bg-orange-50"
+                style={{ borderColor: C.border }}
+              >
+                <div className="text-base font-semibold text-gray-900">{client.name}</div>
+                <div className="mt-1 text-sm text-gray-500">Age band: {client.ageBand}</div>
+                <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <div className="text-gray-500">7d completions</div>
+                    <div className="font-semibold text-gray-900">{client.completed7d}</div>
+                  </div>
+                  <div>
+                    <div className="text-gray-500">30d completions</div>
+                    <div className="font-semibold text-gray-900">{client.completed30d}</div>
+                  </div>
+                  <div>
+                    <div className="text-gray-500">Active goals</div>
+                    <div className="font-semibold text-gray-900">{client.activeGoals}</div>
+                  </div>
+                  <div>
+                    <div className="text-gray-500">Tracked tasks</div>
+                    <div className="font-semibold text-gray-900">{client.totalTasks}</div>
+                  </div>
+                </div>
+              </Link>
             ))}
           </div>
+        )}
+      </Panel>
+    </div>
+  );
+
+  const renderClients = () => (
+    <div className="space-y-6">
+      {renderEmptyClientsPanel()}
+      <Panel
+        title="Clients"
+        subtitle="Each linked client with tracked progress and metrics."
+      >
+        {clients.length === 0 ? (
+          <p className="text-sm text-gray-600">
+            Once a child is linked, they will appear here with their progress metrics.
+          </p>
+        ) : (
+          <div className="grid gap-4 lg:grid-cols-2">
+            {clientRows.map((client) => (
+              <div
+                key={client.id}
+                className="rounded-xl border p-5"
+                style={{ borderColor: C.border, background: C.panelTint }}
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      {client.name}
+                    </h3>
+                    <p className="text-sm text-gray-500">Age band: {client.ageBand}</p>
+                  </div>
+                  <Link
+                    href={`/supervisor/child/${client.id}`}
+                    className="text-sm font-medium text-orange-700"
+                  >
+                    Open
+                  </Link>
+                </div>
+                <div className="mt-5 grid grid-cols-2 gap-3 text-sm">
+                  <StatCard label="Completed (7d)" value={client.completed7d} />
+                  <StatCard label="Completed (30d)" value={client.completed30d} />
+                  <StatCard label="Active Goals" value={client.activeGoals} />
+                  <StatCard label="Difficulty Flags" value={client.difficultySignals} />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Panel>
+    </div>
+  );
+
+  const renderGoals = () => (
+    <Panel
+      title="Goals"
+      subtitle="All goals across your linked clients, with progress and actions."
+      action={
+        clients.length > 0 ? (
+          <Link
+            href="/supervisor/goals/new"
+            className="rounded-xl bg-orange-600 px-4 py-2.5 text-sm font-medium text-white"
+          >
+            Add Goal
+          </Link>
+        ) : null
+      }
+    >
+      {allGoals.length === 0 ? (
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">
+            No goals yet. Goals will appear here once you add them for a linked client.
+          </p>
+          {clients.length === 0 && (
+            <Link
+              href="/supervisor/dashboard?tab=clients"
+              className="inline-flex rounded-xl bg-orange-600 px-4 py-2.5 text-sm font-medium text-white"
+            >
+              Link a Client First
+            </Link>
+          )}
         </div>
-      </DashCard>
-
-      {/* ─── BOTTOM: GRAPH + ACTIONS ────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-[2fr,1fr] gap-8">
-        {/* ── Left: Progress graph panel ──────────────── */}
-        <DashCard accent="orange">
-          <div className="p-6">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <h2 className="text-base font-semibold text-gray-900">
-                  Progress
-                </h2>
-                <p className="text-xs" style={{ color: C.muted }}>
-                  {metric === "avg_minutes"
-                    ? "Average minutes spent on daily activities."
-                    : "Percent of assigned activities completed."}
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <span
-                  className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium"
-                  style={{ background: C.orangeSoft, color: C.orangeDeep }}
-                >
-                  {clientName}
-                </span>
-                <span className="text-xs" style={{ color: C.muted }}>
-                  Avg: {metric === "avg_minutes" ? `${avg}m` : `${avg}%`}
-                </span>
-              </div>
-            </div>
-
+      ) : (
+        <div className="space-y-3">
+          {allGoals.map((goal) => (
             <div
-              className="mt-5 rounded-xl border"
-              style={{ borderColor: C.border, background: C.panelTint }}
-            >
-              <div className="p-4">
-                <SimpleLineChart
-                  data={series}
-                  unit={metric === "avg_minutes" ? "m" : "%"}
-                />
-              </div>
-            </div>
-
-            {/* Summary stat tiles */}
-            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <div
-                className="rounded-lg border bg-white p-4"
-                style={{ borderColor: C.border }}
-              >
-                <div className="text-xs" style={{ color: C.muted }}>
-                  Completed (7 days)
-                </div>
-                <div className="mt-1 text-sm font-semibold">{completed7d}</div>
-              </div>
-              <div
-                className="rounded-lg border bg-white p-4"
-                style={{ borderColor: C.border }}
-              >
-                <div className="text-xs" style={{ color: C.muted }}>
-                  Completed (30 days)
-                </div>
-                <div className="mt-1 text-sm font-semibold">{completed30d}</div>
-              </div>
-              <div
-                className="rounded-lg border bg-white p-4"
-                style={{ borderColor: C.border }}
-              >
-                <div className="text-xs" style={{ color: C.muted }}>
-                  Trend
-                </div>
-                {/* TODO: Compute from real data when available */}
-                <div className="mt-1 text-sm font-semibold">Improving</div>
-              </div>
-            </div>
-          </div>
-        </DashCard>
-
-        {/* ── Right: User Stuff / quick actions panel ─── */}
-        <DashCard accent="yolk">
-          <div className="p-6 space-y-6">
-            <div className="flex items-start justify-between">
-              <div>
-                <h3 className="text-base font-semibold text-gray-900">
-                  User Stuff
-                </h3>
-                <p className="text-xs" style={{ color: C.muted }}>
-                  Quick actions and management.
-                </p>
-              </div>
-              <div
-                className="h-12 w-12 rounded-full border grid place-items-center shrink-0"
-                style={{ background: C.yolkSoft, borderColor: C.border }}
-              >
-                <span className="text-lg font-semibold text-orange-700">
-                  {clientName.slice(0, 1).toUpperCase()}
-                </span>
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <ActionButton
-                tone="orange"
-                href={
-                  clientId
-                    ? `/supervisor/child/${clientId}`
-                    : "/supervisor/dashboard"
-                }
-              >
-                Manage Goals
-              </ActionButton>
-              <ActionButton
-                href={
-                  clientId
-                    ? `/supervisor/child/${clientId}`
-                    : "/supervisor/dashboard"
-                }
-              >
-                Manage Treatment Plan
-              </ActionButton>
-              <ActionButton>Add New Client</ActionButton>
-            </div>
-
-            {/* Info box */}
-            <div
+              key={goal.id}
               className="rounded-xl border p-4"
-              style={{ borderColor: C.border, background: C.panelTint }}
+              style={{ borderColor: C.border }}
             >
-              <div
-                className="text-xs font-semibold"
-                style={{ color: C.orangeDeep }}
-              >
-                Neurodivergent-friendly defaults
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <div className="text-base font-semibold text-gray-900">
+                    {goal.title}
+                  </div>
+                  <div className="mt-1 text-sm text-gray-500">
+                    {goal.childName} · {goal.category} · difficulty {goal.difficulty}/5
+                  </div>
+                  <div className="mt-2 text-sm text-gray-700">
+                    Progress: {goal.completed}/{goal.total || 0} activities completed
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Link
+                    href={`/supervisor/goals/${goal.id}`}
+                    className="rounded-xl border px-3 py-2 text-sm font-medium text-gray-700 hover:bg-orange-50"
+                    style={{ borderColor: C.border }}
+                  >
+                    Open
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => handleToggleGoal(goal)}
+                    disabled={goalActionId === goal.id}
+                    className="rounded-xl border px-3 py-2 text-sm font-medium text-gray-700 hover:bg-orange-50 disabled:opacity-50"
+                    style={{ borderColor: C.border }}
+                  >
+                    {goalActionId === goal.id
+                      ? "Saving..."
+                      : goal.active
+                      ? "Remove Goal"
+                      : "Restore Goal"}
+                  </button>
+                </div>
               </div>
-              <ul
-                className="mt-2 space-y-1 text-xs"
-                style={{ color: C.muted }}
-              >
-                <li>• Predictable layout, consistent actions</li>
-                <li>• Large click targets</li>
-                <li>• Calm colors, low visual noise</li>
-                <li>• Clear labels (no ambiguity)</li>
-              </ul>
             </div>
-          </div>
-        </DashCard>
+          ))}
+        </div>
+      )}
+    </Panel>
+  );
+
+  const renderReports = () => (
+    <div className="space-y-6">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        <StatCard label="Clients" value={reportStats.totalClients} />
+        <StatCard label="7d completions" value={reportStats.totalCompleted7d} />
+        <StatCard label="30d completions" value={reportStats.totalCompleted30d} />
+        <StatCard label="Achieved Goals" value={reportStats.achievedGoals} />
+        <StatCard label="Flagged Clients" value={reportStats.flaggedClients} />
       </div>
+      <Panel
+        title="Reports"
+        subtitle="Data-based summaries from tracked client progress and goals."
+      >
+        {clients.length === 0 ? (
+          <p className="text-sm text-gray-600">
+            Reports will populate after you link clients and assign goals.
+          </p>
+        ) : (
+          <div className="space-y-4">
+            {clientRows.map((client) => (
+              <div
+                key={client.id}
+                className="rounded-xl border p-4"
+                style={{ borderColor: C.border, background: C.panelTint }}
+              >
+                <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <div className="text-base font-semibold text-gray-900">
+                      {client.name}
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      {client.completed7d} completions in 7 days · {client.completed30d} in 30 days
+                    </div>
+                  </div>
+                  <div className="text-sm text-gray-700">
+                    {client.difficultySignals > 0
+                      ? `${client.difficultySignals} difficulty flag(s)`
+                      : "No difficulty flags"}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Panel>
+    </div>
+  );
+
+  return (
+    <div className="space-y-6 p-6 lg:p-8">
+      {currentTab === "clients" && renderClients()}
+      {currentTab === "goals" && renderGoals()}
+      {currentTab === "reports" && renderReports()}
+      {currentTab === "dashboard" && renderDashboard()}
     </div>
   );
 }

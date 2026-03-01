@@ -2,12 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { getTask, updateTask, publishTask } from "@/lib/api";
+import { getTask, updateTask, publishTask, listChildren } from "@/lib/api";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { TASK_TYPE_LABELS, todayISO } from "@/lib/utils";
+import { TASK_TYPE_LABELS } from "@/lib/utils";
 
 export default function TaskEditPage() {
   const params = useParams();
@@ -20,7 +20,9 @@ export default function TaskEditPage() {
   const [editContent, setEditContent] = useState("");
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);
-  const [scheduleDates, setScheduleDates] = useState(todayISO());
+  const [clients, setClients] = useState<any[]>([]);
+  const [assignAllClients, setAssignAllClients] = useState(false);
+  const [selectedClientIds, setSelectedClientIds] = useState<string[]>([]);
 
   useEffect(() => {
     getTask(taskId)
@@ -32,6 +34,12 @@ export default function TaskEditPage() {
       .catch(console.error)
       .finally(() => setLoading(false));
   }, [taskId]);
+
+  useEffect(() => {
+    listChildren()
+      .then((result) => setClients(result.children ?? []))
+      .catch(console.error);
+  }, []);
 
   async function handleSave() {
     setSaving(true);
@@ -52,17 +60,28 @@ export default function TaskEditPage() {
   async function handlePublish() {
     setPublishing(true);
     try {
-      const dates = scheduleDates
-        .split(",")
-        .map((d) => d.trim())
-        .filter(Boolean);
-      await publishTask(taskId, dates);
+      const result = await publishTask(taskId, {
+        scheduled_dates: [],
+        target_child_ids: selectedClientIds,
+        assign_all_linked_children: assignAllClients,
+      });
       setTask({ ...task, status: "assigned" });
+      if (result.published_task_ids.length > 0) {
+        setSelectedClientIds([]);
+      }
     } catch (err: any) {
       alert(err.message || "Publish failed");
     } finally {
       setPublishing(false);
     }
+  }
+
+  function toggleClient(clientId: string) {
+    setSelectedClientIds((prev) =>
+      prev.includes(clientId)
+        ? prev.filter((id) => id !== clientId)
+        : [...prev, clientId]
+    );
   }
 
   if (loading) {
@@ -145,18 +164,43 @@ export default function TaskEditPage() {
       {isDraft && (
         <Card>
           <CardHeader>
-            <CardTitle>Publish & Schedule</CardTitle>
+            <CardTitle>Assign to Client</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Schedule dates (comma-separated YYYY-MM-DD)
+            <p className="text-sm text-gray-600">
+              Assign this task now. The current client stays included by default, and you can add more or send it to all linked clients.
+            </p>
+            <div className="space-y-3 rounded-kid border border-tan-200 p-4">
+              <label className="flex items-center gap-3 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={assignAllClients}
+                  onChange={(e) => setAssignAllClients(e.target.checked)}
+                  className="h-4 w-4 rounded border-tan-200"
+                />
+                Include all linked clients
               </label>
-              <Input
-                value={scheduleDates}
-                onChange={(e) => setScheduleDates(e.target.value)}
-                placeholder="2025-01-15, 2025-01-16"
-              />
+
+              {!assignAllClients && clients.length > 1 && (
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {clients
+                    .filter((client) => client.id !== task.child_id)
+                    .map((client) => (
+                      <label
+                        key={client.id}
+                        className="flex items-center gap-3 rounded-kid border border-tan-200 px-3 py-3 text-sm text-gray-700"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedClientIds.includes(client.id)}
+                          onChange={() => toggleClient(client.id)}
+                          className="h-4 w-4 rounded border-tan-200"
+                        />
+                        <span>{client.display_name}</span>
+                      </label>
+                    ))}
+                </div>
+              )}
             </div>
             <Button
               variant="calm"
@@ -164,7 +208,11 @@ export default function TaskEditPage() {
               onClick={handlePublish}
               disabled={publishing}
             >
-              {publishing ? "Publishing..." : "Publish & Assign to Client"}
+              {publishing
+                ? "Assigning..."
+                : assignAllClients
+                ? "Assign to All Clients"
+                : "Assign to Selected Clients"}
             </Button>
           </CardContent>
         </Card>

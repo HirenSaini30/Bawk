@@ -13,8 +13,8 @@ export function Badge({ className, variant = "default", ...props }: BadgeProps) 
         {
           "bg-primary-100 text-primary-700": variant === "default",
           "bg-calm-100 text-calm-500": variant === "success",
-          "bg-warm-100 text-warm-500": variant === "warning",
-          "bg-blue-100 text-blue-700": variant === "info",
+          "bg-yolk-100 text-yolk-500": variant === "warning",
+          "bg-primary-50 text-primary-600": variant === "info",
           "bg-gray-100 text-gray-600": variant === "muted",
         },
         className

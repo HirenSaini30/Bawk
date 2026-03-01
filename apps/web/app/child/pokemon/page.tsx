@@ -30,7 +30,7 @@ export default function PokemonCollectionPage() {
   return (
     <div className="kid-container space-y-6">
       <div className="text-center">
-        <h1 className="text-kid-xl font-bold text-primary-700 mb-2">
+        <h1 className="text-kid-xl font-bold text-primary-600 mb-2">
           My Pokemon
         </h1>
         <p className="text-gray-500">
@@ -102,7 +102,7 @@ export default function PokemonCollectionPage() {
                       Level {p.level} — {p.xp} XP
                     </div>
                     {threshold && (
-                      <div className="mt-2 bg-gray-200 rounded-full h-3 overflow-hidden">
+                      <div className="mt-2 bg-tan-200 rounded-full h-3 overflow-hidden">
                         <div
                           className="h-full rounded-full transition-all duration-500"
                           style={{
@@ -138,8 +138,8 @@ export default function PokemonCollectionPage() {
                 key={key}
                 className={`text-center p-3 rounded-kid border ${
                   owned
-                    ? "bg-white border-gray-200"
-                    : "bg-gray-100 border-gray-200 opacity-50"
+                    ? "bg-white border-tan-200"
+                    : "bg-gray-100 border-tan-200 opacity-50"
                 }`}
               >
                 <div className="text-2xl">

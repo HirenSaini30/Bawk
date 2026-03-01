@@ -125,10 +125,10 @@ export function CalmingPlayer({ content, onComplete }: CalmingPlayerProps) {
   }
 
   const bgColors: Record<string, string> = {
-    breathing: "bg-blue-50 border-blue-200",
-    grounding: "bg-green-50 border-green-200",
-    visualization: "bg-purple-50 border-purple-200",
-    choice: "bg-warm-50 border-warm-200",
+    breathing: "bg-calm-50 border-calm-200",
+    grounding: "bg-calm-50 border-calm-200",
+    visualization: "bg-yolk-50 border-yolk-200",
+    choice: "bg-primary-50 border-primary-200",
   };
 
   return (

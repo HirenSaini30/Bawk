@@ -146,7 +146,7 @@ export default function TaskPlayerPage() {
             )}
             {result.rewards.coins_delta > 0 && (
               <div className="text-center">
-                <div className="text-2xl font-bold text-warm-500">
+                <div className="text-2xl font-bold text-yolk-500">
                   +{result.rewards.coins_delta}
                 </div>
                 <div className="text-sm text-gray-500">Coins</div>
@@ -156,7 +156,7 @@ export default function TaskPlayerPage() {
         )}
 
         {pokemonInfo && (
-          <Card className="bg-warm-50 border-warm-300 border-2">
+          <Card className="bg-primary-50 border-primary-300 border-2">
             <CardContent className="py-6 text-center">
               <div className="text-5xl mb-2">{pokemonInfo.emoji}</div>
               <p className="text-kid-lg font-bold" style={{ color: pokemonInfo.color }}>
@@ -175,7 +175,16 @@ export default function TaskPlayerPage() {
           </Card>
         )}
 
-        <Button size="xl" onClick={() => router.push("/child/home")}>
+        <Button
+          size="xl"
+          onClick={() => {
+            const xpDelta = result.rewards?.xp_delta;
+            const qs = xpDelta
+              ? `?celebrate=1&xp=${xpDelta}`
+              : "?celebrate=1";
+            router.push(`/child/home${qs}`);
+          }}
+        >
           Back to Home
         </Button>
       </div>

@@ -28,7 +28,7 @@ export default function NewGoalPage() {
       return;
     }
     if (!childId) {
-      setError("No child selected");
+      setError("No client selected");
       return;
     }
 
@@ -86,7 +86,7 @@ export default function NewGoalPage() {
               Description
             </label>
             <Textarea
-              placeholder="Describe what the child should learn or practice..."
+              placeholder="Describe what the client should learn or practice..."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
             />
@@ -130,7 +130,7 @@ export default function NewGoalPage() {
               Success Criteria (one per line)
             </label>
             <Textarea
-              placeholder="Child raises hand to ask for help&#10;Uses polite words like 'please' or 'excuse me'"
+              placeholder="Client raises hand to ask for help&#10;Uses polite words like 'please' or 'excuse me'"
               value={criteriaText}
               onChange={(e) => setCriteriaText(e.target.value)}
               className="min-h-[80px]"

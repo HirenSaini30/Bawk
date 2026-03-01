@@ -9,25 +9,26 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        /* ── Chicken palette: orange-forward primary ─────── */
         primary: {
-          50: "#f0f7ff",
-          100: "#e0efff",
-          200: "#b8dbff",
-          300: "#7ac0ff",
-          400: "#36a3ff",
-          500: "#0084ff",
-          600: "#0066db",
-          700: "#0050b0",
-          800: "#004491",
-          900: "#003a78",
+          50: "#FFF7ED",
+          100: "#FFEDD5",
+          200: "#FED7AA",
+          300: "#FDBA74",
+          400: "#FB923C",
+          500: "#F97316",
+          600: "#EA580C",
+          700: "#C2410C",
+          800: "#9A3412",
+          900: "#7C2D12",
         },
         warm: {
-          50: "#fff8f0",
-          100: "#ffedd5",
-          200: "#fed7aa",
-          300: "#fdba74",
-          400: "#fb923c",
-          500: "#f97316",
+          50: "#FFF7ED",
+          100: "#FFEDD5",
+          200: "#FED7AA",
+          300: "#FDBA74",
+          400: "#FB923C",
+          500: "#F97316",
         },
         calm: {
           50: "#f0fdf4",
@@ -36,6 +37,20 @@ const config: Config = {
           300: "#86efac",
           400: "#4ade80",
           500: "#22c55e",
+        },
+        yolk: {
+          50: "#FEFCE8",
+          100: "#FEF3C7",
+          200: "#FDE68A",
+          300: "#FCD34D",
+          400: "#FBBF24",
+          500: "#F59E0B",
+        },
+        /* Warm tan for borders / muted surfaces */
+        tan: {
+          100: "#FFFBF5",
+          200: "#F1E3D2",
+          300: "#E5D3BE",
         },
       },
       fontSize: {

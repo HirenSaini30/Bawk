@@ -40,7 +40,7 @@ export default function ChildDetailPage() {
   if (!detail) {
     return (
       <div className="supervisor-container text-center py-12 text-red-500">
-        Child not found or access denied
+        Client not found or access denied
       </div>
     );
   }
@@ -70,22 +70,22 @@ export default function ChildDetailPage() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 gap-4 mb-4">
-              <div className="text-center p-4 bg-calm-50 rounded-kid">
-                <div className="text-2xl font-bold text-calm-500">
+              <div className="text-center p-4 bg-primary-50 rounded-kid border border-tan-200">
+                <div className="text-2xl font-bold text-primary-500">
                   {progress.total_completed_7d}
                 </div>
                 <div className="text-sm text-gray-500">Last 7 days</div>
               </div>
-              <div className="text-center p-4 bg-primary-50 rounded-kid">
-                <div className="text-2xl font-bold text-primary-600">
+              <div className="text-center p-4 bg-yolk-50 rounded-kid border border-tan-200">
+                <div className="text-2xl font-bold text-yolk-500">
                   {progress.total_completed_30d}
                 </div>
                 <div className="text-sm text-gray-500">Last 30 days</div>
               </div>
             </div>
             {progress.difficulty_signals?.length > 0 && (
-              <div className="bg-warm-50 border border-warm-200 rounded-kid p-4">
-                <h4 className="font-semibold text-warm-500 mb-2">
+              <div className="bg-primary-50 border border-primary-200 rounded-kid p-4">
+                <h4 className="font-semibold text-primary-600 mb-2">
                   Attention Needed
                 </h4>
                 <ul className="space-y-1">

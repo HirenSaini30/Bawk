@@ -45,7 +45,7 @@ export function SocialStoryPlayer({
   if (phase === "questions") {
     return (
       <div className="space-y-6">
-        <h2 className="text-kid-lg font-bold text-primary-700 text-center">
+        <h2 className="text-kid-lg font-bold text-primary-600 text-center">
           Let&apos;s Think About It
         </h2>
         {questions.map((q, i) => (
@@ -55,7 +55,7 @@ export function SocialStoryPlayer({
                 {q}
               </p>
               <textarea
-                className="w-full rounded-kid border border-gray-300 px-4 py-3 text-kid-sm min-h-[80px] focus:ring-2 focus:ring-primary-300 focus:outline-none"
+                className="w-full rounded-kid border border-tan-200 px-4 py-3 text-kid-sm min-h-[80px] focus:ring-2 focus:ring-primary-300 focus:outline-none"
                 placeholder="Type your answer here..."
                 value={answers[i]}
                 onChange={(e) => {

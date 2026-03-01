@@ -24,7 +24,7 @@ export function ModelingPlayer({ content, onComplete }: ModelingPlayerProps) {
   if (phase === "observe") {
     return (
       <div className="space-y-6">
-        <h2 className="text-kid-lg font-bold text-blue-600 text-center">
+        <h2 className="text-kid-lg font-bold text-primary-600 text-center">
           Watch & Learn
         </h2>
 
@@ -53,15 +53,15 @@ export function ModelingPlayer({ content, onComplete }: ModelingPlayerProps) {
         )}
 
         {prompts.length > 0 && (
-          <Card className="bg-blue-50 border-blue-200">
+          <Card className="bg-primary-50 border-primary-200">
             <CardContent className="py-4">
-              <p className="font-bold text-blue-700 mb-2">
+              <p className="font-bold text-primary-700 mb-2">
                 Things to notice:
               </p>
               <ul className="space-y-2">
                 {prompts.map((p, i) => (
                   <li key={i} className="flex gap-2 text-gray-700">
-                    <span className="text-blue-400">•</span>
+                    <span className="text-primary-400">•</span>
                     {p}
                   </li>
                 ))}
@@ -86,7 +86,7 @@ export function ModelingPlayer({ content, onComplete }: ModelingPlayerProps) {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-kid-lg font-bold text-blue-600 text-center">
+      <h2 className="text-kid-lg font-bold text-primary-600 text-center">
         Your Turn to Think
       </h2>
       {questions.map((q, i) => (
@@ -96,7 +96,7 @@ export function ModelingPlayer({ content, onComplete }: ModelingPlayerProps) {
               {q}
             </p>
             <textarea
-              className="w-full rounded-kid border border-gray-300 px-4 py-3 text-kid-sm min-h-[80px] focus:ring-2 focus:ring-primary-300 focus:outline-none"
+              className="w-full rounded-kid border border-tan-200 px-4 py-3 text-kid-sm min-h-[80px] focus:ring-2 focus:ring-primary-300 focus:outline-none"
               placeholder="Type your thoughts..."
               value={answers[i]}
               onChange={(e) => {

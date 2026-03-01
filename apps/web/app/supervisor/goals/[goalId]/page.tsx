@@ -130,10 +130,10 @@ export default function GoalDetailPage() {
                 <button
                   key={t.key}
                   onClick={() => toggleType(t.key)}
-                  className={`px-4 py-2 rounded-kid text-sm font-medium border transition ${
+                  className={`px-4 py-2 rounded-kid text-sm font-medium border transition focus:outline-none focus:ring-2 focus:ring-primary-300 ${
                     selectedTypes.includes(t.key)
                       ? "bg-primary-500 text-white border-primary-500"
-                      : "bg-white text-gray-600 border-gray-300 hover:border-primary-300"
+                      : "bg-white text-gray-600 border-tan-200 hover:border-primary-300"
                   }`}
                 >
                   {t.label}
@@ -147,7 +147,7 @@ export default function GoalDetailPage() {
               How many tasks?
             </label>
             <select
-              className="rounded-kid border border-gray-300 px-3 py-2"
+              className="rounded-kid border border-tan-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-300"
               value={genCount}
               onChange={(e) => setGenCount(Number(e.target.value))}
             >

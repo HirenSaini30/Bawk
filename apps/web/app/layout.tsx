@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Social Skills Practice",
+  title: "bawk — Social Skills Practice",
   description: "Practice social goals with fun activities",
 };
 

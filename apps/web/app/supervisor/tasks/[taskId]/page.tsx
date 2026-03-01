@@ -164,7 +164,7 @@ export default function TaskEditPage() {
               onClick={handlePublish}
               disabled={publishing}
             >
-              {publishing ? "Publishing..." : "Publish & Assign to Child"}
+              {publishing ? "Publishing..." : "Publish & Assign to Client"}
             </Button>
           </CardContent>
         </Card>

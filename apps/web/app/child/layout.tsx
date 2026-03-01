@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { supabase } from "@/lib/supabase-browser";
 import { Button } from "@/components/ui/button";
 
@@ -58,12 +59,19 @@ export default function ChildLayout({
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-primary-50 to-white">
-      <header className="px-4 py-3 flex items-center justify-between">
+      <header className="bg-white/80 backdrop-blur border-b border-tan-200 px-4 py-3 flex items-center justify-between">
         <Link
           href="/child/home"
-          className="font-bold text-primary-700 text-kid-base"
+          className="flex items-center gap-2 font-bold text-primary-600 text-kid-base"
         >
-          My Activities
+          <Image
+            src="/images/bawklogo.png"
+            alt="Bawk logo"
+            width={32}
+            height={32}
+            className="h-8 w-8 rounded-lg object-contain"
+          />
+          <span>bawk</span>
         </Link>
         <div className="flex items-center gap-3">
           <Link href="/child/pokemon">

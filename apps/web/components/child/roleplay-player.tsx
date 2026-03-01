@@ -58,7 +58,7 @@ export function RoleplayPlayer({ content, onComplete }: RoleplayPlayerProps) {
   if (phase === "intro") {
     return (
       <div className="space-y-6 text-center">
-        <h2 className="text-kid-lg font-bold text-warm-500">
+        <h2 className="text-kid-lg font-bold text-primary-500">
           Roleplay Practice
         </h2>
         {content.scenario && (
@@ -75,7 +75,7 @@ export function RoleplayPlayer({ content, onComplete }: RoleplayPlayerProps) {
             {content.characters.map((c, i) => (
               <div
                 key={i}
-                className="bg-warm-50 rounded-kid p-4 text-center"
+                className="bg-primary-50 rounded-kid p-4 text-center border border-tan-200"
               >
                 <div className="text-2xl mb-1">🎭</div>
                 <div className="font-bold text-gray-900">{c.name}</div>
@@ -126,7 +126,7 @@ export function RoleplayPlayer({ content, onComplete }: RoleplayPlayerProps) {
           <div className="bg-primary-100 text-primary-700 rounded-full px-3 py-1 text-sm font-bold shrink-0">
             {turn.speaker}
           </div>
-          <div className="bg-gray-100 rounded-kid p-3 text-kid-sm">
+          <div className="bg-tan-100 rounded-kid p-3 text-kid-sm border border-tan-200">
             {turn.text}
           </div>
         </div>
@@ -138,7 +138,7 @@ export function RoleplayPlayer({ content, onComplete }: RoleplayPlayerProps) {
           <div className="bg-primary-100 text-primary-700 rounded-full px-3 py-1 text-sm font-bold shrink-0">
             {currentTurn.speaker}
           </div>
-          <div className="bg-gray-100 rounded-kid p-3 text-kid-sm">
+          <div className="bg-tan-100 rounded-kid p-3 text-kid-sm border border-tan-200">
             {currentTurn.text}
           </div>
         </div>
@@ -146,9 +146,9 @@ export function RoleplayPlayer({ content, onComplete }: RoleplayPlayerProps) {
 
       {/* Child's turn */}
       {currentTurn.is_child_turn && (
-        <Card className="border-2 border-warm-300 bg-warm-50">
+        <Card className="border-2 border-primary-300 bg-primary-50">
           <CardContent className="py-6 space-y-4">
-            <p className="text-kid-base font-bold text-center text-warm-500">
+            <p className="text-kid-base font-bold text-center text-primary-600">
               Your Turn!
             </p>
             {currentTurn.hint && (
@@ -174,7 +174,7 @@ export function RoleplayPlayer({ content, onComplete }: RoleplayPlayerProps) {
             ) : (
               <div className="space-y-3">
                 <textarea
-                  className="w-full rounded-kid border border-gray-300 px-4 py-3 text-kid-sm min-h-[80px] focus:ring-2 focus:ring-primary-300 focus:outline-none"
+                  className="w-full rounded-kid border border-tan-200 px-4 py-3 text-kid-sm min-h-[80px] focus:ring-2 focus:ring-primary-300 focus:outline-none"
                   placeholder="Type what you would say..."
                   value={customInput}
                   onChange={(e) => setCustomInput(e.target.value)}

@@ -1,6 +1,60 @@
-# Social Skills Practice Platform
+# 🧠 Social Skills Practice Platform
+**Structured AI-assisted social practice for neurodivergent children**
 
-A web platform helping neurodivergent children (ages 7–15) practice social goals and treatment tasks independently under BCBA supervision.
+A web platform that helps children (ages 7–15) practice measurable social goals independently — while supervisors retain full control over goals, tasks, and progress.
+
+> We extend therapy beyond session time.
+
+---
+
+## The Problem
+
+Neurodivergent children receive structured goals from BCBAs, but practice between sessions is inconsistent.
+
+Reinforcement drops.
+Caregivers lack structured scenarios.
+Progress tracking becomes subjective.
+
+Therapy time is limited. Mastery requires repetition.
+
+---
+
+## The Solution
+
+We convert clinical goals into safe, structured, AI-guided practice:
+
+**Goal → Task → Response → Feedback → Progress**
+
+Supervisors:
+- Define measurable goals (structured JSON criteria)
+- Generate and publish AI-assisted tasks
+- Monitor performance over time
+
+Children:
+- Complete short, interactive tasks (text or voice)
+- Receive supportive, non-punitive feedback
+- Earn XP and Pokémon rewards
+- Resume tasks after interruptions
+
+---
+
+## Why It’s Different
+
+This is not a chatbot.
+
+It’s a constrained system built for safety and consistency:
+
+- Reading-level adaptation per child
+- Interruption-resilient task flow
+- ≤60s voice cap (audio never stored)
+- No diagnosis language, no shame
+- Supervisor-controlled publishing
+- Rate-limited AI endpoints
+
+Voice architecture:
+**Record → Transcribe → Process → Respond**
+
+Simpler. Safer. Fewer failure modes.
 
 ## Architecture
 

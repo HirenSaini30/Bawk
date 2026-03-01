@@ -16,13 +16,16 @@ social-skills-app/
 └── scripts/          # Seed data, dev utilities
 ```
 
-## Prerequisites
+## Tech Stack
 
 - Node.js 20+
 - Python 3.11+
-- Supabase project (free tier works)
+- TypeScript
+- Supabase project
 - Google Gemini API key
-- (Optional) Upstash Redis for production rate limiting
+
+## Features 
+- User Login and Authentication: 
 
 ## Quick Start
 

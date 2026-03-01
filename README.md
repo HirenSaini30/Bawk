@@ -1,7 +1,7 @@
 # 🧠 Social Skills Practice Platform
 **Structured AI-assisted social practice for neurodivergent children**
 
-A web platform that helps children (ages 7–15) practice measurable social goals independently — while supervisors retain full control over goals, tasks, and progress.
+A web platform that helps neurodivergent children (ages 7–15) practice measurable social goals independently, while supervisors retain full control over goal implementation, and progress.
 
 > We extend therapy beyond session time.
 
@@ -9,19 +9,20 @@ A web platform that helps children (ages 7–15) practice measurable social goal
 
 ## The Problem
 
-Neurodivergent children receive structured goals from BCBAs, but practice between sessions is inconsistent.
+In the field of Applied Behavior Analysis (ABA), behavior technicians implement implement social goals structured from BCBAs to neurodivergent children.
+In-person behavioral sessions only occur limited times in the week. Practice between sessions is inconsistent and not guaranteed.
 
 Reinforcement drops.
 Caregivers lack structured scenarios.
 Progress tracking becomes subjective.
 
-Therapy time is limited. Mastery requires repetition.
+Therapy time is limited. Mastery requires consistency.
 
 ---
 
 ## The Solution
 
-We convert clinical goals into safe, structured, AI-guided practice:
+We convert clinical goals into safe, structured, and most importantly consistent, AI-guided practice:
 
 **Goal → Task → Response → Feedback → Progress**
 
@@ -33,28 +34,24 @@ Supervisors:
 Children:
 - Complete short, interactive tasks (text or voice)
 - Receive supportive, non-punitive feedback
-- Earn XP and Pokémon rewards
-- Resume tasks after interruptions
+- Earn XP rewards
+  - Possible themes: Pokémon
 
 ---
 
 ## Why It’s Different
 
-This is not a chatbot.
+Treatment tasks are centered around unique goals that are described and set up by supervisors. Each experience is
+unique to every client, as neurodivergency can vary among clients. Specificity is our specialty.
 
-It’s a constrained system built for safety and consistency:
+Our platform does not just serve as a general leisure application that anyone can use, it is a clinical tool that
+solves one of the biggest issues in ABA: maintenance. 
 
 - Reading-level adaptation per child
 - Interruption-resilient task flow
-- ≤60s voice cap (audio never stored)
 - No diagnosis language, no shame
 - Supervisor-controlled publishing
 - Rate-limited AI endpoints
-
-Voice architecture:
-**Record → Transcribe → Process → Respond**
-
-Simpler. Safer. Fewer failure modes.
 
 ## Architecture
 
@@ -70,13 +67,21 @@ social-skills-app/
 └── scripts/          # Seed data, dev utilities
 ```
 
-## Prerequisites
+## Tech Stack
 
 - Node.js 20+
 - Python 3.11+
-- Supabase project (free tier works)
+- TypeScript
+- Supabase project
 - Google Gemini API key
 - (Optional) Upstash Redis for production rate limiting
+
+## Features
+- User Authentication and Login - Quick and convenient sign-up utilizing Supabase
+- Multi-Role Authentication - Differentiable interface dependent on assigned role (Client, supervisor)
+- Goal Implementation - Fully customization goal implementation from supervisor fed into Gemini API
+- Task Generation - AI-generated social scenarios based on goal promptst to be presented to clients
+- Client interaction - High-fidelity frontend built in TypeScript where client completes tasks, earning incentives for completion in the form of XP to maintain pets
 
 ## Quick Start
 

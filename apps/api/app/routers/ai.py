@@ -98,8 +98,6 @@ async def text_to_speech(
     user: AuthUser = Depends(get_current_user),
     _rl=Depends(ai_rate_limit),
 ):
-    from fastapi.responses import Response
-
     cleaned = await gemini.text_to_speech_text(body.text)
     # For MVP, return the cleaned narration text.
     # In production, pipe this through Google Cloud TTS for actual audio bytes.

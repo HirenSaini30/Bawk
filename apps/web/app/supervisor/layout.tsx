@@ -13,31 +13,47 @@ export default function SupervisorLayout({
 }) {
   const router = useRouter();
   const [userName, setUserName] = useState("");
+  const [checkingAccess, setCheckingAccess] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!session) {
-        router.push("/");
+        router.replace("/");
         return;
       }
-      supabase
+      const { data, error } = await supabase
         .from("profiles")
         .select("display_name, role")
         .eq("id", session.user.id)
-        .single()
-        .then(({ data }) => {
-          if (data?.role !== "supervisor") {
-            router.push("/child/home");
-            return;
-          }
-          setUserName(data.display_name || "Supervisor");
-        });
+        .single();
+
+      if (error || !data?.role) {
+        await supabase.auth.signOut();
+        router.replace("/");
+        return;
+      }
+
+      if (data.role !== "supervisor") {
+        router.replace("/child/home");
+        return;
+      }
+
+      setUserName(data.display_name || "Supervisor");
+      setCheckingAccess(false);
     });
   }, [router]);
 
   async function handleSignOut() {
     await supabase.auth.signOut();
     router.push("/");
+  }
+
+  if (checkingAccess) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center text-gray-500">
+        Loading...
+      </div>
+    );
   }
 
   return (

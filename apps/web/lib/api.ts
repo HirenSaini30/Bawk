@@ -1,6 +1,7 @@
 import { supabase } from "./supabase-browser";
+import { env } from "./env";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_URL = env.apiUrl;
 
 async function getAuthHeaders(): Promise<Record<string, string>> {
   const {

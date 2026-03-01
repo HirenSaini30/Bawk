@@ -22,14 +22,6 @@ create policy "Users read own profile"
 create policy "Users update own profile"
   on public.profiles for update using (auth.uid() = id);
 
-create policy "Supervisors read linked children profiles"
-  on public.profiles for select using (
-    exists (
-      select 1 from public.supervisor_child sc
-      where sc.supervisor_id = auth.uid() and sc.child_id = profiles.id
-    )
-  );
-
 -- Allow insert during signup (the trigger or client creates the row)
 create policy "Users insert own profile"
   on public.profiles for insert with check (auth.uid() = id);
@@ -52,6 +44,15 @@ create policy "Children see own supervisor links"
 
 create index idx_sc_supervisor on public.supervisor_child(supervisor_id);
 create index idx_sc_child on public.supervisor_child(child_id);
+
+-- Deferred profile policy that depends on supervisor_child existing
+create policy "Supervisors read linked children profiles"
+  on public.profiles for select using (
+    exists (
+      select 1 from public.supervisor_child sc
+      where sc.supervisor_id = auth.uid() and sc.child_id = profiles.id
+    )
+  );
 
 -- ---------- C) goals ----------
 create table public.goals (

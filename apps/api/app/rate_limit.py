@@ -2,8 +2,8 @@
 
 import time
 from collections import defaultdict
-from fastapi import HTTPException, Request, Depends
-from app.config import get_settings, Settings
+from fastapi import HTTPException, Request
+from app.config import get_settings
 
 _memory_store: dict[str, list[float]] = defaultdict(list)
 _redis_client = None

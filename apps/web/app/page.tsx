@@ -15,26 +15,38 @@ export default function AuthPage() {
   const [role, setRole] = useState<"child" | "supervisor">("child");
   const [displayName, setDisplayName] = useState("");
   const [loading, setLoading] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session) {
-        redirectByRole(session.user.id);
+        await redirectByRole(session.user.id);
       }
+      setCheckingSession(false);
     });
   }, []);
 
   async function redirectByRole(userId: string) {
-    const { data } = await supabase
+    const { data, error: profileError } = await supabase
       .from("profiles")
       .select("role")
       .eq("id", userId)
       .single();
 
-    if (data?.role === "supervisor") {
+    if (profileError || !data?.role) {
+      await supabase.auth.signOut();
+      setError("Your account profile is missing. Sign in again or create a new account.");
+      router.replace("/");
+      return;
+    }
+
+    if (data.role === "supervisor") {
       router.push("/supervisor/dashboard");
-    } else {
+      return;
+    }
+
+    if (data.role === "child") {
       router.push("/child/home");
     }
   }
@@ -75,6 +87,14 @@ export default function AuthPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  if (checkingSession) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 via-white to-calm-50 p-4 text-gray-500">
+        Checking your account...
+      </div>
+    );
   }
 
   return (

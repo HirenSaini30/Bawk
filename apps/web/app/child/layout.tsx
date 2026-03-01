@@ -13,31 +13,47 @@ export default function ChildLayout({
 }) {
   const router = useRouter();
   const [userName, setUserName] = useState("");
+  const [checkingAccess, setCheckingAccess] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!session) {
-        router.push("/");
+        router.replace("/");
         return;
       }
-      supabase
+      const { data, error } = await supabase
         .from("profiles")
         .select("display_name, role")
         .eq("id", session.user.id)
-        .single()
-        .then(({ data }) => {
-          if (data?.role !== "child") {
-            router.push("/supervisor/dashboard");
-            return;
-          }
-          setUserName(data.display_name || "Friend");
-        });
+        .single();
+
+      if (error || !data?.role) {
+        await supabase.auth.signOut();
+        router.replace("/");
+        return;
+      }
+
+      if (data.role !== "child") {
+        router.replace("/supervisor/dashboard");
+        return;
+      }
+
+      setUserName(data.display_name || "Friend");
+      setCheckingAccess(false);
     });
   }, [router]);
 
   async function handleSignOut() {
     await supabase.auth.signOut();
     router.push("/");
+  }
+
+  if (checkingAccess) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-primary-50 to-white flex items-center justify-center text-gray-500">
+        Loading...
+      </div>
+    );
   }
 
   return (

@@ -1,4 +1,4 @@
-# 🧠 Social Skills Practice Platform
+# 🧠 Bawk: Social Skills Practice Platform
 **Structured AI-assisted social practice for neurodivergent children**
 
 A web platform that helps neurodivergent children (ages 7–15) practice measurable social goals independently, while supervisors retain full control over goal implementation, and progress.
